@@ -42,6 +42,8 @@ export default function InvoiceDetailScreen() {
   const [bookingText, setBookingText] = useState<string>('');
   const [showAccountingModal, setShowAccountingModal] = useState(false);
   const [activeKontenrahmen, setActiveKontenrahmen] = useState('SKR03');
+  const [toast, setToast] = useState<{type: 'success' | 'error'; message: string} | null>(null);
+  const [showConfirm, setShowConfirm] = useState<{action: string; title: string; message: string} | null>(null);
 
   useEffect(() => {
     if (id) {
@@ -103,35 +105,48 @@ export default function InvoiceDetailScreen() {
     }
   };
 
-  const handleApprove = async () => {
-    Alert.alert(
-      'Rechnung genehmigen',
-      'Möchten Sie diese Rechnung genehmigen?',
-      [
-        { text: 'Abbrechen', style: 'cancel' },
-        {
-          text: 'Genehmigen',
-          onPress: async () => {
-            setActionLoading(true);
-            try {
-              const updated = await apiService.approveInvoice(id!, 'Manager');
-              setInvoice(updated);
-              Alert.alert('Erfolg', 'Rechnung wurde genehmigt');
-              loadInvoice();
-            } catch (error) {
-              Alert.alert('Fehler', 'Genehmigung fehlgeschlagen');
-            } finally {
-              setActionLoading(false);
-            }
-          },
-        },
-      ]
-    );
+  // Toast auto-dismiss
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
+
+  const executeAction = async (action: string) => {
+    setShowConfirm(null);
+    setActionLoading(true);
+    try {
+      if (action === 'approve') {
+        const updated = await apiService.approveInvoice(id!, 'Manager');
+        setInvoice(updated);
+        setToast({type: 'success', message: 'Rechnung wurde genehmigt'});
+        loadInvoice();
+      } else if (action === 'archive') {
+        const updated = await apiService.archiveInvoice(id!);
+        setInvoice(updated);
+        setToast({type: 'success', message: 'Rechnung wurde GoBD-konform archiviert'});
+        loadInvoice();
+      }
+    } catch (error: any) {
+      const msg = error.response?.data?.detail || 'Aktion fehlgeschlagen';
+      setToast({type: 'error', message: msg});
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleApprove = () => {
+    setShowConfirm({
+      action: 'approve',
+      title: 'Rechnung genehmigen',
+      message: 'Möchten Sie diese Rechnung genehmigen?',
+    });
   };
 
   const handleReject = async () => {
     if (!rejectReason.trim()) {
-      Alert.alert('Fehler', 'Bitte geben Sie einen Ablehnungsgrund ein');
+      setToast({type: 'error', message: 'Bitte geben Sie einen Ablehnungsgrund ein'});
       return;
     }
 
@@ -141,39 +156,22 @@ export default function InvoiceDetailScreen() {
       setInvoice(updated);
       setShowRejectModal(false);
       setRejectReason('');
-      Alert.alert('Erfolg', 'Rechnung wurde abgelehnt');
+      setToast({type: 'success', message: 'Rechnung wurde abgelehnt'});
       loadInvoice();
-    } catch (error) {
-      Alert.alert('Fehler', 'Ablehnung fehlgeschlagen');
+    } catch (error: any) {
+      const msg = error.response?.data?.detail || 'Ablehnung fehlgeschlagen';
+      setToast({type: 'error', message: msg});
     } finally {
       setActionLoading(false);
     }
   };
 
-  const handleArchive = async () => {
-    Alert.alert(
-      'Rechnung archivieren',
-      'Diese Rechnung wird GoBD-konform archiviert und kann danach nicht mehr bearbeitet werden.',
-      [
-        { text: 'Abbrechen', style: 'cancel' },
-        {
-          text: 'Archivieren',
-          onPress: async () => {
-            setActionLoading(true);
-            try {
-              const updated = await apiService.archiveInvoice(id!);
-              setInvoice(updated);
-              Alert.alert('Erfolg', 'Rechnung wurde archiviert');
-              loadInvoice();
-            } catch (error) {
-              Alert.alert('Fehler', 'Archivierung fehlgeschlagen');
-            } finally {
-              setActionLoading(false);
-            }
-          },
-        },
-      ]
-    );
+  const handleArchive = () => {
+    setShowConfirm({
+      action: 'archive',
+      title: 'Rechnung archivieren',
+      message: 'Diese Rechnung wird GoBD-konform archiviert und kann danach nicht mehr bearbeitet werden.',
+    });
   };
 
   const handleSaveAccounting = async () => {
@@ -196,9 +194,10 @@ export default function InvoiceDetailScreen() {
       const updated = await apiService.updateInvoice(id!, updatedData);
       setInvoice(updated);
       setShowAccountingModal(false);
-      Alert.alert('Erfolg', 'Kontierung wurde gespeichert');
-    } catch (error) {
-      Alert.alert('Fehler', 'Speichern fehlgeschlagen');
+      setToast({type: 'success', message: 'Kontierung wurde gespeichert'});
+    } catch (error: any) {
+      const msg = error.response?.data?.detail || 'Speichern fehlgeschlagen';
+      setToast({type: 'error', message: msg});
     } finally {
       setActionLoading(false);
     }
@@ -229,12 +228,13 @@ export default function InvoiceDetailScreen() {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        Alert.alert('Erfolg', `Export heruntergeladen: ${filename}`);
+        setToast({type: 'success', message: `Export heruntergeladen: ${filename}`});
       } else {
-        Alert.alert('Export', `${filename}\n\nInhalt wurde generiert.`);
+        setToast({type: 'success', message: `${filename} wurde generiert`});
       }
-    } catch (error) {
-      Alert.alert('Fehler', 'Export fehlgeschlagen');
+    } catch (error: any) {
+      const msg = error.response?.data?.detail || 'Export fehlgeschlagen';
+      setToast({type: 'error', message: msg});
     } finally {
       setActionLoading(false);
     }
@@ -341,7 +341,7 @@ export default function InvoiceDetailScreen() {
                 onPress={() => setShowImageModal(true)}
               >
                 <Image
-                  source={{ uri: `data:image/jpeg;base64,${invoice.image_base64}` }}
+                  source={{ uri: invoice.image_base64.startsWith('data:') ? invoice.image_base64 : `data:image/jpeg;base64,${invoice.image_base64}` }}
                   style={styles.invoiceImage}
                   resizeMode="cover"
                 />
@@ -745,13 +745,66 @@ export default function InvoiceDetailScreen() {
           </TouchableOpacity>
           {invoice.image_base64 && (
             <Image
-              source={{ uri: `data:image/jpeg;base64,${invoice.image_base64}` }}
+              source={{ uri: invoice.image_base64.startsWith('data:') ? invoice.image_base64 : `data:image/jpeg;base64,${invoice.image_base64}` }}
               style={styles.fullImage}
               resizeMode="contain"
             />
           )}
         </View>
       </Modal>
+
+      {/* Confirmation Dialog */}
+      {showConfirm && (
+        <Modal
+          visible={true}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowConfirm(null)}
+        >
+          <View style={styles.confirmOverlay}>
+            <View style={styles.confirmBox}>
+              <Ionicons 
+                name={showConfirm.action === 'approve' ? 'checkmark-circle' : 'archive'} 
+                size={40} 
+                color={showConfirm.action === 'approve' ? '#55efc4' : '#6c5ce7'} 
+              />
+              <Text style={styles.confirmTitle}>{showConfirm.title}</Text>
+              <Text style={styles.confirmMessage}>{showConfirm.message}</Text>
+              <View style={styles.confirmButtons}>
+                <TouchableOpacity
+                  style={styles.confirmCancelBtn}
+                  onPress={() => setShowConfirm(null)}
+                >
+                  <Text style={styles.confirmCancelText}>Abbrechen</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.confirmActionBtn, showConfirm.action === 'approve' ? styles.approveButton : styles.archiveButton]}
+                  onPress={() => executeAction(showConfirm.action)}
+                >
+                  <Text style={styles.confirmActionText}>
+                    {showConfirm.action === 'approve' ? 'Genehmigen' : 'Archivieren'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
+
+      {/* Toast Notification */}
+      {toast && (
+        <View style={[styles.toast, toast.type === 'success' ? styles.toastSuccess : styles.toastError]}>
+          <Ionicons 
+            name={toast.type === 'success' ? 'checkmark-circle' : 'alert-circle'} 
+            size={22} 
+            color="#fff" 
+          />
+          <Text style={styles.toastText}>{toast.message}</Text>
+          <TouchableOpacity onPress={() => setToast(null)}>
+            <Ionicons name="close" size={18} color="#fff" />
+          </TouchableOpacity>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -1239,5 +1292,94 @@ const styles = StyleSheet.create({
   fullImage: {
     width: '100%',
     height: '80%',
+  },
+  // Confirmation Dialog
+  confirmOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  confirmBox: {
+    backgroundColor: '#1a1a2e',
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    maxWidth: 400,
+    width: '100%',
+    gap: 12,
+  },
+  confirmTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  confirmMessage: {
+    fontSize: 14,
+    color: '#a0a0a0',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  confirmButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 8,
+    width: '100%',
+  },
+  confirmCancelBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#636e72',
+    alignItems: 'center',
+  },
+  confirmCancelText: {
+    color: '#a0a0a0',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  confirmActionBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  confirmActionText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: 'bold',
+  },
+  approveButton: {
+    backgroundColor: '#00b894',
+  },
+  archiveButton: {
+    backgroundColor: '#6c5ce7',
+  },
+  // Toast Notification
+  toast: {
+    position: 'absolute',
+    bottom: 30,
+    left: 16,
+    right: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+    borderRadius: 12,
+    gap: 10,
+    zIndex: 9999,
+  },
+  toastSuccess: {
+    backgroundColor: '#00b894',
+  },
+  toastError: {
+    backgroundColor: '#d63031',
+  },
+  toastText: {
+    flex: 1,
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '500',
   },
 });
