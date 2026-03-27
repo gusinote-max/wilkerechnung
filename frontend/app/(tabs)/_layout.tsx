@@ -1,14 +1,32 @@
-import { Tabs, Redirect } from 'expo-router';
+import { Tabs, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { useAuthStore } from '../../src/store/authStore';
 
 export default function TabLayout() {
   const { token } = useAuthStore();
+  const router = useRouter();
+  const [mounted, setMounted] = useState(false);
 
-  // If not authenticated, redirect to login
-  if (!token) {
-    return <Redirect href="/login" />;
+  useEffect(() => {
+    // Wait for client-side hydration
+    const timer = setTimeout(() => setMounted(true), 300);
+    return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    if (mounted && !token) {
+      router.replace('/login');
+    }
+  }, [mounted, token]);
+
+  if (!mounted || !token) {
+    return (
+      <View style={styles.loading}>
+        <ActivityIndicator size="large" color="#6c5ce7" />
+      </View>
+    );
   }
 
   return (
@@ -80,3 +98,12 @@ export default function TabLayout() {
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  loading: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#0f0f1a',
+  },
+});
