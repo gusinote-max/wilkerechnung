@@ -44,6 +44,7 @@ export default function InvoiceDetailScreen() {
   const [activeKontenrahmen, setActiveKontenrahmen] = useState('SKR03');
   const [toast, setToast] = useState<{type: 'success' | 'error'; message: string} | null>(null);
   const [showConfirm, setShowConfirm] = useState<{action: string; title: string; message: string} | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -172,6 +173,21 @@ export default function InvoiceDetailScreen() {
       title: 'Rechnung archivieren',
       message: 'Diese Rechnung wird GoBD-konform archiviert und kann danach nicht mehr bearbeitet werden.',
     });
+  };
+
+  const handleDeleteInvoice = async () => {
+    setShowDeleteConfirm(false);
+    setActionLoading(true);
+    try {
+      await apiService.deleteInvoice(id!);
+      setToast({type: 'success', message: 'Rechnung wurde gelöscht'});
+      setTimeout(() => router.back(), 1000);
+    } catch (error: any) {
+      const msg = error.response?.data?.detail || 'Rechnung konnte nicht gelöscht werden';
+      setToast({type: 'error', message: msg});
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const handleSaveAccounting = async () => {
@@ -551,6 +567,14 @@ export default function InvoiceDetailScreen() {
               <Ionicons name="close" size={20} color="#fff" />
               <Text style={styles.actionButtonText}>Ablehnen</Text>
             </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.deleteButton]}
+              onPress={() => setShowDeleteConfirm(true)}
+              disabled={actionLoading}
+            >
+              <Ionicons name="trash" size={20} color="#fff" />
+              <Text style={styles.actionButtonText}>Löschen</Text>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -569,6 +593,40 @@ export default function InvoiceDetailScreen() {
                   <Text style={styles.actionButtonText}>Archivieren</Text>
                 </>
               )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.deleteButton]}
+              onPress={() => setShowDeleteConfirm(true)}
+              disabled={actionLoading}
+            >
+              <Ionicons name="trash" size={20} color="#fff" />
+              <Text style={styles.actionButtonText}>Löschen</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {(invoice.status === 'rejected') && (
+          <View style={[styles.actionsSection, isDesktop && styles.desktopActions]}>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.deleteButton]}
+              onPress={() => setShowDeleteConfirm(true)}
+              disabled={actionLoading}
+            >
+              <Ionicons name="trash" size={20} color="#fff" />
+              <Text style={styles.actionButtonText}>Löschen</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {(invoice.status === 'archived') && (
+          <View style={[styles.actionsSection, isDesktop && styles.desktopActions]}>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.deleteButton]}
+              onPress={() => setShowDeleteConfirm(true)}
+              disabled={actionLoading}
+            >
+              <Ionicons name="trash" size={20} color="#fff" />
+              <Text style={styles.actionButtonText}>Löschen</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -790,6 +848,38 @@ export default function InvoiceDetailScreen() {
           </View>
         </Modal>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        visible={showDeleteConfirm}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDeleteConfirm(false)}
+      >
+        <View style={styles.confirmOverlay}>
+          <View style={styles.confirmBox}>
+            <Ionicons name="trash" size={40} color="#ff7675" />
+            <Text style={styles.confirmTitle}>Rechnung löschen</Text>
+            <Text style={styles.confirmMessage}>
+              Diese Rechnung wird unwiderruflich gelöscht. Möchten Sie fortfahren?
+            </Text>
+            <View style={styles.confirmButtons}>
+              <TouchableOpacity
+                style={styles.confirmCancelBtn}
+                onPress={() => setShowDeleteConfirm(false)}
+              >
+                <Text style={styles.confirmCancelText}>Abbrechen</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.confirmActionBtn, styles.deleteButton]}
+                onPress={handleDeleteInvoice}
+              >
+                <Text style={styles.confirmActionText}>Löschen</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Toast Notification */}
       {toast && (
@@ -1158,6 +1248,9 @@ const styles = StyleSheet.create({
   },
   archiveButton: {
     backgroundColor: '#74b9ff',
+  },
+  deleteButton: {
+    backgroundColor: '#d63031',
   },
   actionButtonText: {
     color: '#fff',

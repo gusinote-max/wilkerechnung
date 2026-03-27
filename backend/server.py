@@ -1548,16 +1548,16 @@ async def update_invoice(invoice_id: str, update: InvoiceUpdate):
 
 @api_router.delete("/invoices/{invoice_id}")
 async def delete_invoice(invoice_id: str):
-    """Delete an invoice (only pending ones)"""
+    """Delete an invoice"""
     invoice = await db.invoices.find_one({"id": invoice_id})
     if not invoice:
         raise HTTPException(status_code=404, detail="Rechnung nicht gefunden")
     
-    if invoice['status'] != InvoiceStatus.PENDING.value:
-        raise HTTPException(status_code=400, detail="Nur ausstehende Rechnungen können gelöscht werden")
-    
     await db.invoices.delete_one({"id": invoice_id})
-    await log_audit(invoice_id, "deleted", "user", {})
+    # Also clean up related data
+    await db.audit_logs.delete_many({"invoice_id": invoice_id})
+    await db.invoice_workflows.delete_many({"invoice_id": invoice_id})
+    await log_audit(invoice_id, "deleted", "user", {"previous_status": invoice.get('status', 'unknown')})
     
     return {"message": "Rechnung gelöscht"}
 

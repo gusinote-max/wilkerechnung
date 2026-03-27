@@ -60,6 +60,12 @@ export default function SettingsScreen() {
   const [toast, setToast] = useState<{type: 'success' | 'error'; message: string} | null>(null);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showDeleteUserConfirm, setShowDeleteUserConfirm] = useState<string | null>(null);
+  const [showCreateUser, setShowCreateUser] = useState(false);
+  const [newUserName, setNewUserName] = useState('');
+  const [newUserEmail, setNewUserEmail] = useState('');
+  const [newUserPassword, setNewUserPassword] = useState('');
+  const [newUserRole, setNewUserRole] = useState('viewer');
+  const [creatingUser, setCreatingUser] = useState(false);
 
   // Form states
   const [apiKey, setApiKey] = useState('');
@@ -345,6 +351,34 @@ export default function SettingsScreen() {
     }
   };
 
+  const handleCreateUser = async () => {
+    if (!newUserName.trim() || !newUserEmail.trim() || !newUserPassword.trim()) {
+      setToast({ type: 'error', message: 'Bitte alle Felder ausfüllen' });
+      return;
+    }
+    setCreatingUser(true);
+    try {
+      const newUser = await apiService.register({
+        name: newUserName.trim(),
+        email: newUserEmail.trim(),
+        password: newUserPassword.trim(),
+        role: newUserRole,
+      });
+      setUsers([...users, newUser]);
+      setShowCreateUser(false);
+      setNewUserName('');
+      setNewUserEmail('');
+      setNewUserPassword('');
+      setNewUserRole('viewer');
+      setToast({ type: 'success', message: `Benutzer "${newUser.name}" wurde erstellt` });
+    } catch (error: any) {
+      const msg = error?.response?.data?.detail || 'Benutzer konnte nicht erstellt werden';
+      setToast({ type: 'error', message: msg });
+    } finally {
+      setCreatingUser(false);
+    }
+  };
+
   // Toast auto-dismiss
   useEffect(() => {
     if (toast) {
@@ -461,6 +495,14 @@ export default function SettingsScreen() {
                   </View>
                 ))
               )}
+
+              <TouchableOpacity
+                style={styles.addUserBtn}
+                onPress={() => setShowCreateUser(true)}
+              >
+                <Ionicons name="person-add" size={20} color="#fff" />
+                <Text style={styles.addUserBtnText}>Neuen Benutzer anlegen</Text>
+              </TouchableOpacity>
             </View>
           )}
 
@@ -983,6 +1025,110 @@ export default function SettingsScreen() {
                   <Text style={{ color: '#fff', fontSize: 14, fontWeight: '600' }}>Löschen</Text>
                 </TouchableOpacity>
               </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Create User Modal */}
+      <Modal
+        visible={showCreateUser}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowCreateUser(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { maxWidth: 480 }]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Neuen Benutzer anlegen</Text>
+              <TouchableOpacity onPress={() => setShowCreateUser(false)}>
+                <Ionicons name="close" size={24} color="#a0a0a0" />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={{ maxHeight: 500 }}>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Name *</Text>
+                <TextInput
+                  style={styles.input}
+                  value={newUserName}
+                  onChangeText={setNewUserName}
+                  placeholder="Vor- und Nachname"
+                  placeholderTextColor="#636e72"
+                />
+              </View>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>E-Mail *</Text>
+                <TextInput
+                  style={styles.input}
+                  value={newUserEmail}
+                  onChangeText={setNewUserEmail}
+                  placeholder="benutzer@firma.de"
+                  placeholderTextColor="#636e72"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+              </View>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Passwort *</Text>
+                <TextInput
+                  style={styles.input}
+                  value={newUserPassword}
+                  onChangeText={setNewUserPassword}
+                  placeholder="Mindestens 6 Zeichen"
+                  placeholderTextColor="#636e72"
+                  secureTextEntry
+                />
+              </View>
+              <View style={styles.inputGroup}>
+                <Text style={[styles.label, { marginBottom: 10 }]}>Rolle *</Text>
+                {[
+                  { key: 'admin', name: 'Admin', desc: 'Vollzugriff auf alle Funktionen', icon: 'shield-checkmark' as const },
+                  { key: 'manager', name: 'Manager', desc: 'Rechnungen genehmigen und verwalten', icon: 'briefcase' as const },
+                  { key: 'accountant', name: 'Buchhalter', desc: 'Rechnungen bearbeiten und exportieren', icon: 'calculator' as const },
+                  { key: 'viewer', name: 'Nur Lesen', desc: 'Rechnungen nur einsehen', icon: 'eye' as const },
+                ].map((role) => (
+                  <TouchableOpacity
+                    key={role.key}
+                    style={[styles.roleOption, newUserRole === role.key && styles.roleOptionSelected]}
+                    onPress={() => setNewUserRole(role.key)}
+                  >
+                    <Ionicons name={role.icon} size={20} color={newUserRole === role.key ? '#fff' : '#6c5ce7'} />
+                    <View style={styles.roleOptionInfo}>
+                      <Text style={[styles.roleOptionName, newUserRole === role.key && styles.roleOptionNameSelected]}>
+                        {role.name}
+                      </Text>
+                      <Text style={[styles.roleOptionDesc, newUserRole === role.key && styles.roleOptionDescSelected]}>
+                        {role.desc}
+                      </Text>
+                    </View>
+                    {newUserRole === role.key && (
+                      <Ionicons name="checkmark-circle" size={20} color="#fff" />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </ScrollView>
+            <View style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}>
+              <TouchableOpacity
+                style={[styles.cancelButton, { flex: 1 }]}
+                onPress={() => setShowCreateUser(false)}
+              >
+                <Text style={styles.cancelButtonText}>Abbrechen</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{ flex: 1, alignItems: 'center', backgroundColor: '#6c5ce7', borderRadius: 8, padding: 14, flexDirection: 'row', justifyContent: 'center', gap: 8 }}
+                onPress={handleCreateUser}
+                disabled={creatingUser}
+              >
+                {creatingUser ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <>
+                    <Ionicons name="person-add" size={18} color="#fff" />
+                    <Text style={{ color: '#fff', fontSize: 14, fontWeight: '600' }}>Erstellen</Text>
+                  </>
+                )}
+              </TouchableOpacity>
             </View>
           </View>
         </View>
@@ -1539,6 +1685,21 @@ const styles = StyleSheet.create({
     backgroundColor: '#6c5ce715',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  addUserBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#6c5ce7',
+    borderRadius: 10,
+    padding: 14,
+    marginTop: 12,
+    gap: 8,
+  },
+  addUserBtnText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
   },
   // User Edit Modal styles
   userEditHeader: {
