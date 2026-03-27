@@ -24,6 +24,8 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="invoice/[id]" options={{ title: 'Rechnungsdetails' }} />
         <Stack.Screen name="upload" options={{ title: 'Rechnung hochladen', presentation: 'modal' }} />
+        <Stack.Screen name="login" options={{ headerShown: false }} />
+        <Stack.Screen name="register" options={{ headerShown: false }} />
       </Stack>
     </SafeAreaProvider>
   );

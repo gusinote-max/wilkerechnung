@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, UploadFile, File, Query, Depends
+from fastapi import FastAPI, APIRouter, HTTPException, UploadFile, File, Query, Depends, BackgroundTasks
 from fastapi.responses import Response
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
@@ -21,6 +21,9 @@ import hashlib
 import jwt
 import bcrypt
 import re
+import aiosmtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -67,6 +70,19 @@ class ReminderType(str, Enum):
     APPROVAL_PENDING = "approval_pending"
     PAYMENT_DUE = "payment_due"
     CUSTOM = "custom"
+
+class ApprovalStageStatus(str, Enum):
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+
+# ===================== EMAIL CONFIGURATION =====================
+SMTP_HOST = os.environ.get('SMTP_HOST', '')
+SMTP_PORT = int(os.environ.get('SMTP_PORT', '587'))
+SMTP_USER = os.environ.get('SMTP_USER', '')
+SMTP_PASSWORD = os.environ.get('SMTP_PASSWORD', '')
+SMTP_FROM_EMAIL = os.environ.get('SMTP_FROM_EMAIL', 'noreply@candis-kopie.de')
+SMTP_FROM_NAME = os.environ.get('SMTP_FROM_NAME', 'Candis-Kopie')
 
 # ===================== KONTENRAHMEN DATA =====================
 # SKR03 - Hauptkonten (verkürzt für MVP)
@@ -322,6 +338,55 @@ class SepaPayment(BaseModel):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     created_by: str
 
+# NEW: Multi-Stage Approval Workflow Models
+class ApprovalStage(BaseModel):
+    stage_number: int
+    stage_name: str
+    required_role: UserRole
+    approver_id: Optional[str] = None
+    approver_name: Optional[str] = None
+    status: ApprovalStageStatus = ApprovalStageStatus.PENDING
+    approved_at: Optional[datetime] = None
+    comment: Optional[str] = None
+
+class ApprovalWorkflow(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str
+    description: str = ""
+    stages: List[ApprovalStage] = []
+    min_amount: float = 0  # Minimum invoice amount to trigger this workflow
+    max_amount: Optional[float] = None  # Maximum amount (None = unlimited)
+    active: bool = True
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+class WorkflowCreate(BaseModel):
+    name: str
+    description: str = ""
+    stages: List[dict]  # List of {stage_name, required_role}
+    min_amount: float = 0
+    max_amount: Optional[float] = None
+
+# NEW: Email Settings Model
+class EmailSettings(BaseModel):
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    from_email: str = "noreply@candis-kopie.de"
+    from_name: str = "Candis-Kopie"
+    enabled: bool = False
+
+class EmailNotification(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    recipient_email: str
+    recipient_name: str
+    subject: str
+    body: str
+    sent: bool = False
+    sent_at: Optional[datetime] = None
+    error: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
 # ===================== AUTH HELPERS =====================
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
@@ -425,6 +490,258 @@ def generate_search_text(invoice_data: dict) -> str:
         if isinstance(item, dict):
             parts.append(item.get('description', ''))
     return ' '.join(filter(None, parts)).lower()
+
+# ===================== EMAIL FUNCTIONS =====================
+async def get_email_settings() -> EmailSettings:
+    """Get email settings from database"""
+    settings_doc = await db.email_settings.find_one({"id": "email_settings"})
+    if settings_doc:
+        return EmailSettings(**{k: v for k, v in settings_doc.items() if k != '_id'})
+    # Return default (disabled) settings
+    return EmailSettings()
+
+async def send_email(to_email: str, to_name: str, subject: str, body_html: str, body_text: str = None):
+    """Send email using SMTP"""
+    email_settings = await get_email_settings()
+    
+    if not email_settings.enabled or not email_settings.smtp_host:
+        logger.info(f"Email not sent (disabled): {subject} to {to_email}")
+        # Store notification for later
+        notification = EmailNotification(
+            recipient_email=to_email,
+            recipient_name=to_name,
+            subject=subject,
+            body=body_html,
+            sent=False,
+            error="E-Mail-Versand deaktiviert"
+        )
+        await db.email_notifications.insert_one(notification.model_dump())
+        return False
+    
+    try:
+        message = MIMEMultipart("alternative")
+        message["From"] = f"{email_settings.from_name} <{email_settings.from_email}>"
+        message["To"] = f"{to_name} <{to_email}>"
+        message["Subject"] = subject
+        
+        if body_text:
+            message.attach(MIMEText(body_text, "plain", "utf-8"))
+        message.attach(MIMEText(body_html, "html", "utf-8"))
+        
+        await aiosmtplib.send(
+            message,
+            hostname=email_settings.smtp_host,
+            port=email_settings.smtp_port,
+            username=email_settings.smtp_user,
+            password=email_settings.smtp_password,
+            start_tls=True,
+        )
+        
+        # Log successful send
+        notification = EmailNotification(
+            recipient_email=to_email,
+            recipient_name=to_name,
+            subject=subject,
+            body=body_html,
+            sent=True,
+            sent_at=datetime.utcnow()
+        )
+        await db.email_notifications.insert_one(notification.model_dump())
+        
+        logger.info(f"Email sent: {subject} to {to_email}")
+        return True
+        
+    except Exception as e:
+        logger.error(f"Email send error: {str(e)}")
+        # Store failed notification
+        notification = EmailNotification(
+            recipient_email=to_email,
+            recipient_name=to_name,
+            subject=subject,
+            body=body_html,
+            sent=False,
+            error=str(e)
+        )
+        await db.email_notifications.insert_one(notification.model_dump())
+        return False
+
+async def send_approval_request_email(invoice: dict, approver_email: str, approver_name: str, stage_name: str):
+    """Send email to request approval"""
+    data = invoice.get('data', {})
+    subject = f"Freigabe erforderlich: Rechnung {data.get('invoice_number', 'N/A')} - {data.get('vendor_name', 'Unbekannt')}"
+    
+    body_html = f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #6c5ce7;">Freigabe erforderlich</h2>
+        <p>Hallo {approver_name},</p>
+        <p>Eine Rechnung wartet auf Ihre Freigabe:</p>
+        
+        <div style="background-color: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <p><strong>Rechnungsnummer:</strong> {data.get('invoice_number', 'N/A')}</p>
+            <p><strong>Lieferant:</strong> {data.get('vendor_name', 'Unbekannt')}</p>
+            <p><strong>Betrag:</strong> {data.get('gross_amount', 0):.2f} €</p>
+            <p><strong>Freigabestufe:</strong> {stage_name}</p>
+        </div>
+        
+        <p>Bitte melden Sie sich in Candis-Kopie an, um die Rechnung zu prüfen und freizugeben.</p>
+        
+        <p style="color: #888; font-size: 12px; margin-top: 30px;">
+            Diese E-Mail wurde automatisch von Candis-Kopie generiert.
+        </p>
+    </body>
+    </html>
+    """
+    
+    await send_email(approver_email, approver_name, subject, body_html)
+
+async def send_approval_notification_email(invoice: dict, user_email: str, user_name: str, approved: bool, reason: str = None):
+    """Send email notification about approval/rejection"""
+    data = invoice.get('data', {})
+    status = "genehmigt" if approved else "abgelehnt"
+    subject = f"Rechnung {data.get('invoice_number', 'N/A')} wurde {status}"
+    
+    reason_text = f"<p><strong>Grund:</strong> {reason}</p>" if reason else ""
+    
+    body_html = f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: {'#55efc4' if approved else '#ff7675'};">Rechnung {status}</h2>
+        <p>Hallo {user_name},</p>
+        <p>Die folgende Rechnung wurde {status}:</p>
+        
+        <div style="background-color: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <p><strong>Rechnungsnummer:</strong> {data.get('invoice_number', 'N/A')}</p>
+            <p><strong>Lieferant:</strong> {data.get('vendor_name', 'Unbekannt')}</p>
+            <p><strong>Betrag:</strong> {data.get('gross_amount', 0):.2f} €</p>
+            {reason_text}
+        </div>
+        
+        <p style="color: #888; font-size: 12px; margin-top: 30px;">
+            Diese E-Mail wurde automatisch von Candis-Kopie generiert.
+        </p>
+    </body>
+    </html>
+    """
+    
+    await send_email(user_email, user_name, subject, body_html)
+
+async def send_reminder_email(invoice: dict, user_email: str, user_name: str, reminder_message: str):
+    """Send reminder email"""
+    data = invoice.get('data', {})
+    subject = f"Erinnerung: Rechnung {data.get('invoice_number', 'N/A')}"
+    
+    body_html = f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #fd79a8;">Erinnerung</h2>
+        <p>Hallo {user_name},</p>
+        <p>{reminder_message}</p>
+        
+        <div style="background-color: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <p><strong>Rechnungsnummer:</strong> {data.get('invoice_number', 'N/A')}</p>
+            <p><strong>Lieferant:</strong> {data.get('vendor_name', 'Unbekannt')}</p>
+            <p><strong>Betrag:</strong> {data.get('gross_amount', 0):.2f} €</p>
+        </div>
+        
+        <p>Bitte melden Sie sich in Candis-Kopie an, um die Aktion auszuführen.</p>
+        
+        <p style="color: #888; font-size: 12px; margin-top: 30px;">
+            Diese E-Mail wurde automatisch von Candis-Kopie generiert.
+        </p>
+    </body>
+    </html>
+    """
+    
+    await send_email(user_email, user_name, subject, body_html)
+
+# ===================== WORKFLOW FUNCTIONS =====================
+async def get_applicable_workflow(amount: float) -> Optional[ApprovalWorkflow]:
+    """Find the applicable workflow based on invoice amount"""
+    workflows = await db.workflows.find({"active": True}).to_list(100)
+    
+    for workflow_doc in workflows:
+        workflow = ApprovalWorkflow(**{k: v for k, v in workflow_doc.items() if k != '_id'})
+        if amount >= workflow.min_amount:
+            if workflow.max_amount is None or amount <= workflow.max_amount:
+                return workflow
+    
+    return None
+
+async def create_invoice_workflow(invoice_id: str, workflow: ApprovalWorkflow):
+    """Create workflow instance for an invoice"""
+    workflow_instance = {
+        "id": str(uuid.uuid4()),
+        "invoice_id": invoice_id,
+        "workflow_id": workflow.id,
+        "workflow_name": workflow.name,
+        "stages": [stage.model_dump() for stage in workflow.stages],
+        "current_stage": 0,
+        "completed": False,
+        "created_at": datetime.utcnow()
+    }
+    await db.invoice_workflows.insert_one(workflow_instance)
+    return workflow_instance
+
+async def get_invoice_workflow(invoice_id: str) -> Optional[dict]:
+    """Get workflow instance for an invoice"""
+    workflow = await db.invoice_workflows.find_one({"invoice_id": invoice_id})
+    if workflow:
+        return {k: v for k, v in workflow.items() if k != '_id'}
+    return None
+
+async def advance_workflow_stage(invoice_id: str, approver_id: str, approver_name: str, comment: str = None) -> bool:
+    """Advance to next workflow stage or complete workflow"""
+    workflow = await get_invoice_workflow(invoice_id)
+    if not workflow or workflow.get('completed'):
+        return True  # No workflow or already completed
+    
+    current_stage_idx = workflow.get('current_stage', 0)
+    stages = workflow.get('stages', [])
+    
+    if current_stage_idx >= len(stages):
+        return True  # All stages complete
+    
+    # Update current stage
+    stages[current_stage_idx]['status'] = ApprovalStageStatus.APPROVED.value
+    stages[current_stage_idx]['approver_id'] = approver_id
+    stages[current_stage_idx]['approver_name'] = approver_name
+    stages[current_stage_idx]['approved_at'] = datetime.utcnow()
+    stages[current_stage_idx]['comment'] = comment
+    
+    # Check if more stages
+    next_stage_idx = current_stage_idx + 1
+    if next_stage_idx >= len(stages):
+        # Workflow complete
+        await db.invoice_workflows.update_one(
+            {"invoice_id": invoice_id},
+            {"$set": {"stages": stages, "current_stage": next_stage_idx, "completed": True}}
+        )
+        return True
+    else:
+        # Move to next stage
+        await db.invoice_workflows.update_one(
+            {"invoice_id": invoice_id},
+            {"$set": {"stages": stages, "current_stage": next_stage_idx}}
+        )
+        
+        # Send email to next approver
+        next_stage = stages[next_stage_idx]
+        required_role = next_stage.get('required_role')
+        
+        # Find users with required role
+        approvers = await db.users.find({"role": required_role, "active": True}).to_list(10)
+        invoice = await db.invoices.find_one({"id": invoice_id})
+        
+        for approver in approvers:
+            await send_approval_request_email(
+                invoice,
+                approver['email'],
+                approver['name'],
+                next_stage.get('stage_name', f'Stufe {next_stage_idx + 1}')
+            )
+        
+        return False
 
 async def extract_invoice_with_ai(image_base64: str) -> InvoiceData:
     """Extract invoice data using OpenRouter AI"""
@@ -1520,6 +1837,215 @@ async def get_audit_log(invoice_id: str):
     """Get audit log for an invoice (GoBD compliance)"""
     logs = await db.audit_logs.find({"invoice_id": invoice_id}).sort("timestamp", -1).to_list(100)
     return [AuditLog(**log) for log in logs]
+
+# ===== WORKFLOWS =====
+
+@api_router.get("/workflows")
+async def get_workflows():
+    """Get all approval workflows"""
+    workflows = await db.workflows.find().to_list(100)
+    return [{k: v for k, v in w.items() if k != '_id'} for w in workflows]
+
+@api_router.post("/workflows")
+async def create_workflow(workflow_create: WorkflowCreate):
+    """Create a new approval workflow"""
+    stages = []
+    for i, stage_data in enumerate(workflow_create.stages):
+        stages.append(ApprovalStage(
+            stage_number=i + 1,
+            stage_name=stage_data.get('stage_name', f'Stufe {i + 1}'),
+            required_role=UserRole(stage_data.get('required_role', 'manager'))
+        ))
+    
+    workflow = ApprovalWorkflow(
+        name=workflow_create.name,
+        description=workflow_create.description,
+        stages=stages,
+        min_amount=workflow_create.min_amount,
+        max_amount=workflow_create.max_amount
+    )
+    
+    await db.workflows.insert_one(workflow.model_dump())
+    return workflow.model_dump()
+
+@api_router.put("/workflows/{workflow_id}")
+async def update_workflow(workflow_id: str, active: bool):
+    """Enable/disable a workflow"""
+    result = await db.workflows.update_one(
+        {"id": workflow_id},
+        {"$set": {"active": active}}
+    )
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Workflow nicht gefunden")
+    return {"message": "Workflow aktualisiert"}
+
+@api_router.delete("/workflows/{workflow_id}")
+async def delete_workflow(workflow_id: str):
+    """Delete a workflow"""
+    result = await db.workflows.delete_one({"id": workflow_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Workflow nicht gefunden")
+    return {"message": "Workflow gelöscht"}
+
+@api_router.get("/invoices/{invoice_id}/workflow")
+async def get_invoice_workflow_status(invoice_id: str):
+    """Get workflow status for an invoice"""
+    workflow = await get_invoice_workflow(invoice_id)
+    if not workflow:
+        return {"has_workflow": False}
+    return {"has_workflow": True, "workflow": workflow}
+
+@api_router.post("/invoices/{invoice_id}/workflow/approve")
+async def approve_workflow_stage(invoice_id: str, approval: ApprovalRequest, background_tasks: BackgroundTasks):
+    """Approve current workflow stage"""
+    invoice = await db.invoices.find_one({"id": invoice_id})
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Rechnung nicht gefunden")
+    
+    workflow = await get_invoice_workflow(invoice_id)
+    if not workflow:
+        # No multi-stage workflow, use simple approval
+        return await approve_invoice(invoice_id, approval)
+    
+    if workflow.get('completed'):
+        raise HTTPException(status_code=400, detail="Workflow bereits abgeschlossen")
+    
+    # Get current user info
+    approver_id = approval.approved_by
+    user = await db.users.find_one({"name": approver_id})
+    approver_name = user['name'] if user else approval.approved_by
+    
+    # Advance workflow
+    workflow_complete = await advance_workflow_stage(invoice_id, approver_id, approver_name, approval.comment)
+    
+    await log_audit(invoice_id, "workflow_stage_approved", approver_name, {
+        "stage": workflow.get('current_stage', 0) + 1,
+        "comment": approval.comment
+    })
+    
+    if workflow_complete:
+        # All stages approved, update invoice status
+        await db.invoices.update_one(
+            {"id": invoice_id},
+            {"$set": {
+                "status": InvoiceStatus.APPROVED.value,
+                "approved_by": approver_name,
+                "approved_at": datetime.utcnow(),
+                "updated_at": datetime.utcnow()
+            }}
+        )
+        await log_audit(invoice_id, "approved", approver_name, {"workflow_complete": True})
+        await trigger_webhooks("invoice.approved", invoice)
+    
+    updated_workflow = await get_invoice_workflow(invoice_id)
+    return {
+        "workflow_complete": workflow_complete,
+        "workflow": updated_workflow
+    }
+
+# ===== EMAIL SETTINGS =====
+
+@api_router.get("/email-settings")
+async def get_email_settings_route():
+    """Get email settings"""
+    settings = await get_email_settings()
+    # Don't expose password in response
+    return {
+        "smtp_host": settings.smtp_host,
+        "smtp_port": settings.smtp_port,
+        "smtp_user": settings.smtp_user,
+        "from_email": settings.from_email,
+        "from_name": settings.from_name,
+        "enabled": settings.enabled,
+        "has_password": bool(settings.smtp_password)
+    }
+
+@api_router.put("/email-settings")
+async def update_email_settings_route(
+    smtp_host: str = "",
+    smtp_port: int = 587,
+    smtp_user: str = "",
+    smtp_password: Optional[str] = None,
+    from_email: str = "noreply@candis-kopie.de",
+    from_name: str = "Candis-Kopie",
+    enabled: bool = False
+):
+    """Update email settings"""
+    # Get existing settings
+    existing = await get_email_settings()
+    
+    # Keep existing password if not provided
+    password = smtp_password if smtp_password is not None else existing.smtp_password
+    
+    settings = EmailSettings(
+        smtp_host=smtp_host,
+        smtp_port=smtp_port,
+        smtp_user=smtp_user,
+        smtp_password=password,
+        from_email=from_email,
+        from_name=from_name,
+        enabled=enabled
+    )
+    
+    await db.email_settings.replace_one(
+        {"id": "email_settings"},
+        {"id": "email_settings", **settings.model_dump()},
+        upsert=True
+    )
+    
+    return {"message": "E-Mail-Einstellungen aktualisiert"}
+
+@api_router.post("/email-settings/test")
+async def test_email_settings(test_email: str):
+    """Send a test email"""
+    success = await send_email(
+        test_email,
+        "Test Empfänger",
+        "Candis-Kopie - Test E-Mail",
+        "<h1>Test erfolgreich!</h1><p>E-Mail-Konfiguration funktioniert.</p>",
+        "Test erfolgreich! E-Mail-Konfiguration funktioniert."
+    )
+    
+    if success:
+        return {"message": "Test-E-Mail gesendet"}
+    else:
+        return {"message": "E-Mail konnte nicht gesendet werden (siehe Logs)"}
+
+@api_router.get("/email-notifications")
+async def get_email_notifications(limit: int = 50):
+    """Get email notification history"""
+    notifications = await db.email_notifications.find().sort("created_at", -1).limit(limit).to_list(limit)
+    return [{k: v for k, v in n.items() if k != '_id'} for n in notifications]
+
+@api_router.post("/reminders/{reminder_id}/send-email")
+async def send_reminder_email_route(reminder_id: str, background_tasks: BackgroundTasks):
+    """Send reminder email for a specific reminder"""
+    reminder = await db.reminders.find_one({"id": reminder_id})
+    if not reminder:
+        raise HTTPException(status_code=404, detail="Erinnerung nicht gefunden")
+    
+    invoice = await db.invoices.find_one({"id": reminder['invoice_id']})
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Rechnung nicht gefunden")
+    
+    # Find users to notify (e.g., managers for approval reminders)
+    users = await db.users.find({"role": {"$in": ["admin", "manager"]}, "active": True}).to_list(10)
+    
+    for user in users:
+        await send_reminder_email(
+            invoice,
+            user['email'],
+            user['name'],
+            reminder.get('message', 'Bitte überprüfen Sie diese Rechnung.')
+        )
+    
+    # Mark reminder as sent
+    await db.reminders.update_one(
+        {"id": reminder_id},
+        {"$set": {"sent": True, "sent_at": datetime.utcnow()}}
+    )
+    
+    return {"message": f"Erinnerung an {len(users)} Benutzer gesendet"}
 
 # Include the router in the main app
 app.include_router(api_router)

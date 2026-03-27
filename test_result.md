@@ -267,6 +267,66 @@ backend:
         agent: "testing"
         comment: "✅ TESTED: Audit log system working correctly - GET /api/audit/{invoice_id} returns proper audit trail for GoBD compliance"
 
+  - task: "Auth API (Register/Login/Me)"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Auth endpoints added: POST /api/auth/register, POST /api/auth/login, GET /api/auth/me. Admin user auto-seeded on startup. Login returns JWT token. Quick curl test shows login working."
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: All auth endpoints working correctly. POST /api/auth/register creates users successfully, duplicate email properly rejected (400). POST /api/auth/login works with admin credentials (admin@candis-kopie.de/admin123), wrong password properly rejected (401). GET /api/auth/me returns user info with Bearer token. JWT token authentication functional."
+
+  - task: "User Management API"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "User CRUD: GET /api/users, GET /api/users/{id}, PUT /api/users/{id}, DELETE /api/users/{id}"
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: All user management endpoints working correctly. GET /api/users returns user list, GET /api/users/{id} retrieves specific user, PUT /api/users/{id} updates user data (tested name update), DELETE /api/users/{id} removes user successfully. All operations require authentication."
+
+  - task: "Workflow API (CRUD + Invoice Workflow)"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Workflow CRUD: GET /api/workflows, POST /api/workflows, PUT /api/workflows/{id}, DELETE /api/workflows/{id}. Invoice workflow approval: GET /api/invoices/{id}/workflow, POST /api/invoices/{id}/workflow/approve"
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: All workflow endpoints working correctly. GET /api/workflows returns workflow list (initially empty), POST /api/workflows creates new workflows with stages (tested with Manager/Accounting stages, min_amount=100, max_amount=5000), DELETE /api/workflows/{id} removes workflows successfully. Workflow creation properly handles stage definitions with required roles."
+
+  - task: "Email Settings API"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Email settings: GET /api/email-settings, PUT /api/email-settings, POST /api/email-settings/test. Email notifications: GET /api/email-notifications. Quick curl test shows endpoints respond correctly."
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: All email settings endpoints working correctly. GET /api/email-settings returns default settings (empty SMTP host, enabled=false), PUT /api/email-settings updates settings via query parameters (tested with smtp.test.de, port 587, test@test.de), GET /api/email-notifications returns notification history (empty initially). Settings persistence working correctly."
+
 frontend:
   - task: "Dashboard Screen"
     implemented: true
@@ -369,3 +429,7 @@ agent_communication:
     message: "Initial implementation complete. Backend has all endpoints for invoice management with OpenRouter OCR, approval workflow, GoBD archive, DATEV/E-Rechnung exports, and n8n webhooks. Frontend has all screens. Please test backend API endpoints first."
   - agent: "testing"
     message: "✅ BACKEND TESTING COMPLETE: All 21 backend API tests passed (100% success rate). Comprehensive testing covered: Health check, Statistics, Settings CRUD, Invoice CRUD operations, Approval/Rejection workflows, GoBD Archive, DATEV/E-Rechnung exports, Webhook integration, and Audit logging. All endpoints are functional and working correctly. Backend is ready for production use."
+  - agent: "main"
+    message: "New Auth, User Management, Workflow CRUD, and Email Settings APIs have been added. Backend is running and manually tested with curl - login works, workflows return [], email-settings returns defaults. Please test the new endpoints: 1) Auth: POST /api/auth/register, POST /api/auth/login, GET /api/auth/me (requires Bearer token). Admin credentials: admin@candis-kopie.de / admin123. 2) User mgmt: GET /api/users, PUT /api/users/{id}, DELETE /api/users/{id}. 3) Workflows: POST /api/workflows (body: {name, stages:[], min_amount, max_amount}), GET /api/workflows, DELETE /api/workflows/{id}. 4) Email: GET /api/email-settings, PUT /api/email-settings (query params), POST /api/email-settings/test."
+  - agent: "testing"
+    message: "✅ NEW BACKEND ENDPOINTS TESTING COMPLETE: All 4 new endpoint groups tested successfully (100% pass rate). Auth API: Registration, login, JWT authentication, error handling all working. User Management: CRUD operations functional. Workflow API: Creation, listing, deletion working with proper stage handling. Email Settings: GET/PUT operations and notifications working. All endpoints properly secured with authentication. Backend ready for production."
