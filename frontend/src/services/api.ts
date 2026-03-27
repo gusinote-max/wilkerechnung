@@ -9,6 +9,18 @@ const api = axios.create({
   },
 });
 
+// Add auth token to requests
+let authToken: string | null = null;
+
+export const setAuthToken = (token: string | null) => {
+  authToken = token;
+  if (token) {
+    api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+  } else {
+    delete api.defaults.headers.common['Authorization'];
+  }
+};
+
 export interface LineItem {
   description: string;
   quantity: number;
@@ -37,6 +49,12 @@ export interface InvoiceData {
   line_items: LineItem[];
   payment_terms: string;
   notes: string;
+  // NEW: Accounting fields
+  account_number?: string;
+  account_name?: string;
+  cost_center?: string;
+  cost_center_name?: string;
+  booking_text?: string;
 }
 
 export interface Invoice {
@@ -51,6 +69,7 @@ export interface Invoice {
   rejection_reason?: string;
   archived_at?: string;
   gobd_hash?: string;
+  search_text?: string;
 }
 
 export interface Stats {
@@ -60,6 +79,7 @@ export interface Stats {
     approved: number;
     rejected: number;
     archived: number;
+    pending_reminders: number;
   };
   amounts: {
     net: number;
@@ -80,6 +100,9 @@ export interface Settings {
   company_name: string;
   company_address: string;
   company_vat_id: string;
+  company_iban: string;
+  company_bic: string;
+  default_kontenrahmen: string;
   updated_at: string;
 }
 
@@ -101,11 +124,120 @@ export interface AuditLog {
   details: Record<string, any>;
 }
 
+// NEW: User types
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  role: 'admin' | 'manager' | 'accountant' | 'viewer';
+  active: boolean;
+  created_at: string;
+  last_login?: string;
+}
+
+export interface UserCreate {
+  email: string;
+  password: string;
+  name: string;
+  role?: 'admin' | 'manager' | 'accountant' | 'viewer';
+}
+
+// NEW: Account types (Kontenrahmen)
+export interface Account {
+  id: string;
+  number: string;
+  name: string;
+  category: string;
+  kontenrahmen: string;
+  active: boolean;
+}
+
+// NEW: Cost Center types
+export interface CostCenter {
+  id: string;
+  number: string;
+  name: string;
+  description: string;
+  active: boolean;
+  created_at: string;
+}
+
+// NEW: Reminder types
+export interface Reminder {
+  id: string;
+  invoice_id: string;
+  reminder_type: 'approval_pending' | 'payment_due' | 'custom';
+  message: string;
+  due_date: string;
+  sent: boolean;
+  sent_at?: string;
+  created_at: string;
+}
+
+export interface ReminderCreate {
+  invoice_id: string;
+  reminder_type: 'approval_pending' | 'payment_due' | 'custom';
+  message: string;
+  due_date: string;
+}
+
 export const apiService = {
   // Health
   async healthCheck() {
     const response = await api.get('/health');
     return response.data;
+  },
+
+  // Auth
+  async login(email: string, password: string) {
+    const response = await api.post('/auth/login', { email, password });
+    return response.data;
+  },
+
+  async register(user: UserCreate) {
+    const response = await api.post('/auth/register', user);
+    return response.data;
+  },
+
+  async getCurrentUser(): Promise<User> {
+    const response = await api.get('/auth/me');
+    return response.data;
+  },
+
+  // Users
+  async getUsers(): Promise<User[]> {
+    const response = await api.get('/users');
+    return response.data;
+  },
+
+  async updateUser(id: string, update: Partial<User>): Promise<User> {
+    const response = await api.put(`/users/${id}`, update);
+    return response.data;
+  },
+
+  async deleteUser(id: string): Promise<void> {
+    await api.delete(`/users/${id}`);
+  },
+
+  // Accounts (Kontenrahmen)
+  async getAccounts(kontenrahmen: string = 'SKR03'): Promise<Account[]> {
+    const response = await api.get('/accounts', { params: { kontenrahmen } });
+    return response.data;
+  },
+
+  // Cost Centers
+  async getCostCenters(): Promise<CostCenter[]> {
+    const response = await api.get('/cost-centers');
+    return response.data;
+  },
+
+  async createCostCenter(center: Partial<CostCenter>): Promise<CostCenter> {
+    const response = await api.post('/cost-centers', center);
+    return response.data;
+  },
+
+  async deleteCostCenter(id: string): Promise<void> {
+    await api.delete(`/cost-centers/${id}`);
   },
 
   // Invoices
@@ -132,6 +264,11 @@ export const apiService = {
 
   async deleteInvoice(id: string): Promise<void> {
     await api.delete(`/invoices/${id}`);
+  },
+
+  async searchInvoices(query: string): Promise<Invoice[]> {
+    const response = await api.get('/invoices/search', { params: { q: query } });
+    return response.data;
   },
 
   // Approval Workflow
@@ -162,6 +299,30 @@ export const apiService = {
     return response.data;
   },
 
+  async searchArchive(query: string): Promise<Invoice[]> {
+    const response = await api.get('/archive/search', { params: { q: query } });
+    return response.data;
+  },
+
+  // Reminders
+  async getReminders(pendingOnly: boolean = true): Promise<Reminder[]> {
+    const response = await api.get('/reminders', { params: { pending_only: pendingOnly } });
+    return response.data;
+  },
+
+  async createReminder(reminder: ReminderCreate): Promise<Reminder> {
+    const response = await api.post('/reminders', reminder);
+    return response.data;
+  },
+
+  async sendReminder(id: string): Promise<void> {
+    await api.post(`/reminders/${id}/send`);
+  },
+
+  async deleteReminder(id: string): Promise<void> {
+    await api.delete(`/reminders/${id}`);
+  },
+
   // Export
   async exportDatevAscii(): Promise<string> {
     const response = await api.get('/export/datev-ascii', {
@@ -172,6 +333,14 @@ export const apiService = {
 
   async exportDatevXml(): Promise<string> {
     const response = await api.get('/export/datev-xml', {
+      responseType: 'text',
+    });
+    return response.data;
+  },
+
+  async exportSepa(invoiceIds: string[]): Promise<string> {
+    const response = await api.get('/export/sepa', {
+      params: { invoice_ids: invoiceIds.join(',') },
       responseType: 'text',
     });
     return response.data;

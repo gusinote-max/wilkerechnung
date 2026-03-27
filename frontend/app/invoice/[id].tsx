@@ -12,17 +12,20 @@ import {
   Modal,
   KeyboardAvoidingView,
   Platform,
+  useWindowDimensions,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import * as FileSystem from 'expo-file-system';
-import * as Sharing from 'expo-sharing';
-import { apiService, Invoice, AuditLog } from '../../src/services/api';
+import { Picker } from '@react-native-picker/picker';
+import { apiService, Invoice, AuditLog, Account, CostCenter, InvoiceData } from '../../src/services/api';
 
 export default function InvoiceDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
+  
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [auditLog, setAuditLog] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
@@ -30,10 +33,19 @@ export default function InvoiceDetailScreen() {
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
   const [showImageModal, setShowImageModal] = useState(false);
+  
+  // NEW: Accounting fields
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
+  const [selectedAccount, setSelectedAccount] = useState<string>('');
+  const [selectedCostCenter, setSelectedCostCenter] = useState<string>('');
+  const [bookingText, setBookingText] = useState<string>('');
+  const [showAccountingModal, setShowAccountingModal] = useState(false);
 
   useEffect(() => {
     if (id) {
       loadInvoice();
+      loadAccountingData();
     }
   }, [id]);
 
@@ -45,11 +57,35 @@ export default function InvoiceDetailScreen() {
       ]);
       setInvoice(invoiceData);
       setAuditLog(auditData);
+      
+      // Set accounting fields from invoice
+      if (invoiceData.data.account_number) {
+        setSelectedAccount(invoiceData.data.account_number);
+      }
+      if (invoiceData.data.cost_center) {
+        setSelectedCostCenter(invoiceData.data.cost_center);
+      }
+      if (invoiceData.data.booking_text) {
+        setBookingText(invoiceData.data.booking_text);
+      }
     } catch (error) {
       console.error('Error loading invoice:', error);
       Alert.alert('Fehler', 'Rechnung konnte nicht geladen werden');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadAccountingData = async () => {
+    try {
+      const [accountsData, costCentersData] = await Promise.all([
+        apiService.getAccounts('SKR03'),
+        apiService.getCostCenters(),
+      ]);
+      setAccounts(accountsData);
+      setCostCenters(costCentersData);
+    } catch (error) {
+      console.error('Error loading accounting data:', error);
     }
   };
 
@@ -126,6 +162,34 @@ export default function InvoiceDetailScreen() {
     );
   };
 
+  const handleSaveAccounting = async () => {
+    if (!invoice) return;
+    
+    setActionLoading(true);
+    try {
+      const selectedAccountObj = accounts.find(a => a.number === selectedAccount);
+      const selectedCostCenterObj = costCenters.find(c => c.number === selectedCostCenter);
+      
+      const updatedData: InvoiceData = {
+        ...invoice.data,
+        account_number: selectedAccount,
+        account_name: selectedAccountObj?.name || '',
+        cost_center: selectedCostCenter,
+        cost_center_name: selectedCostCenterObj?.name || '',
+        booking_text: bookingText,
+      };
+      
+      const updated = await apiService.updateInvoice(id!, updatedData);
+      setInvoice(updated);
+      setShowAccountingModal(false);
+      Alert.alert('Erfolg', 'Kontierung wurde gespeichert');
+    } catch (error) {
+      Alert.alert('Fehler', 'Speichern fehlgeschlagen');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handleExport = async (format: 'zugferd' | 'xrechnung') => {
     setActionLoading(true);
     try {
@@ -140,16 +204,20 @@ export default function InvoiceDetailScreen() {
         filename = `xrechnung_${invoice?.data.invoice_number || id}.xml`;
       }
 
-      const fileUri = FileSystem.documentDirectory + filename;
-      await FileSystem.writeAsStringAsync(fileUri, content);
-
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(fileUri, {
-          mimeType: 'application/xml',
-          dialogTitle: 'E-Rechnung exportieren',
-        });
+      // Use blob download for web
+      if (typeof window !== 'undefined' && window.document) {
+        const blob = new Blob([content], { type: 'application/xml' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        Alert.alert('Erfolg', `Export heruntergeladen: ${filename}`);
       } else {
-        Alert.alert('Erfolg', `Export gespeichert: ${filename}`);
+        Alert.alert('Export', `${filename}\n\nInhalt wurde generiert.`);
       }
     } catch (error) {
       Alert.alert('Fehler', 'Export fehlgeschlagen');
@@ -231,174 +299,222 @@ export default function InvoiceDetailScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
-      <ScrollView style={styles.scrollView}>
-        {/* Status Header */}
-        <View style={[styles.statusHeader, { borderLeftColor: getStatusColor(invoice.status) }]}>
-          <View style={styles.statusInfo}>
-            <Text style={[styles.statusText, { color: getStatusColor(invoice.status) }]}>
-              {getStatusLabel(invoice.status)}
-            </Text>
-            <Text style={styles.invoiceNumber}>
-              {data.invoice_number || 'Ohne Nummer'}
-            </Text>
-          </View>
-          <Text style={styles.grossAmount}>{formatCurrency(data.gross_amount)}</Text>
-        </View>
-
-        {/* Invoice Image */}
-        {invoice.image_base64 && (
-          <TouchableOpacity
-            style={styles.imageContainer}
-            onPress={() => setShowImageModal(true)}
-          >
-            <Image
-              source={{ uri: `data:image/jpeg;base64,${invoice.image_base64}` }}
-              style={styles.invoiceImage}
-              resizeMode="cover"
-            />
-            <View style={styles.imageOverlay}>
-              <Ionicons name="expand" size={24} color="#fff" />
-              <Text style={styles.imageOverlayText}>Vergrößern</Text>
-            </View>
-          </TouchableOpacity>
-        )}
-
-        {/* Vendor Info */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Lieferant</Text>
-          <View style={styles.infoCard}>
-            <Text style={styles.vendorName}>{data.vendor_name || '-'}</Text>
-            <Text style={styles.vendorAddress}>{data.vendor_address || '-'}</Text>
-            {data.vendor_vat_id && (
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>USt-IdNr:</Text>
-                <Text style={styles.infoValue}>{data.vendor_vat_id}</Text>
-              </View>
-            )}
-            {data.vendor_iban && (
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>IBAN:</Text>
-                <Text style={styles.infoValue}>{data.vendor_iban}</Text>
-              </View>
-            )}
-          </View>
-        </View>
-
-        {/* Invoice Details */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Rechnungsdaten</Text>
-          <View style={styles.detailsGrid}>
-            <View style={styles.detailItem}>
-              <Text style={styles.detailLabel}>Rechnungsdatum</Text>
-              <Text style={styles.detailValue}>{formatDate(data.invoice_date)}</Text>
-            </View>
-            <View style={styles.detailItem}>
-              <Text style={styles.detailLabel}>Fälligkeitsdatum</Text>
-              <Text style={styles.detailValue}>{formatDate(data.due_date)}</Text>
-            </View>
-            <View style={styles.detailItem}>
-              <Text style={styles.detailLabel}>Währung</Text>
-              <Text style={styles.detailValue}>{data.currency}</Text>
-            </View>
-            <View style={styles.detailItem}>
-              <Text style={styles.detailLabel}>MwSt-Satz</Text>
-              <Text style={styles.detailValue}>{data.vat_rate}%</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Amounts */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Beträge</Text>
-          <View style={styles.amountsCard}>
-            <View style={styles.amountRow}>
-              <Text style={styles.amountLabel}>Netto:</Text>
-              <Text style={styles.amountValue}>{formatCurrency(data.net_amount)}</Text>
-            </View>
-            <View style={styles.amountRow}>
-              <Text style={styles.amountLabel}>MwSt ({data.vat_rate}%):</Text>
-              <Text style={styles.amountValue}>{formatCurrency(data.vat_amount)}</Text>
-            </View>
-            <View style={styles.divider} />
-            <View style={styles.amountRow}>
-              <Text style={styles.amountLabelBold}>Brutto:</Text>
-              <Text style={styles.amountValueBold}>{formatCurrency(data.gross_amount)}</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Line Items */}
-        {data.line_items && data.line_items.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Positionen</Text>
-            {data.line_items.map((item, index) => (
-              <View key={index} style={styles.lineItem}>
-                <Text style={styles.lineItemDesc}>{item.description}</Text>
-                <View style={styles.lineItemDetails}>
-                  <Text style={styles.lineItemQty}>
-                    {item.quantity} x {formatCurrency(item.unit_price)}
-                  </Text>
-                  <Text style={styles.lineItemTotal}>{formatCurrency(item.total)}</Text>
-                </View>
-              </View>
-            ))}
-          </View>
-        )}
-
-        {/* Rejection Reason */}
-        {invoice.status === 'rejected' && invoice.rejection_reason && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Ablehnungsgrund</Text>
-            <View style={styles.rejectionCard}>
-              <Ionicons name="close-circle" size={20} color="#ff7675" />
-              <Text style={styles.rejectionText}>{invoice.rejection_reason}</Text>
-            </View>
-          </View>
-        )}
-
-        {/* GoBD Info */}
-        {invoice.status === 'archived' && invoice.gobd_hash && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>GoBD-Archivierung</Text>
-            <View style={styles.gobdCard}>
-              <View style={styles.gobdRow}>
-                <Ionicons name="shield-checkmark" size={20} color="#55efc4" />
-                <Text style={styles.gobdLabel}>Revisionssicher archiviert</Text>
-              </View>
-              <View style={styles.gobdRow}>
-                <Text style={styles.gobdHashLabel}>SHA-256 Hash:</Text>
-              </View>
-              <Text style={styles.gobdHash}>{invoice.gobd_hash}</Text>
-              {invoice.archived_at && (
-                <Text style={styles.gobdDate}>
-                  Archiviert am: {formatDateTime(invoice.archived_at)}
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={isDesktop && styles.desktopContent}
+      >
+        {/* Desktop Layout */}
+        <View style={isDesktop && styles.desktopLayout}>
+          {/* Left Column */}
+          <View style={isDesktop && styles.desktopLeftColumn}>
+            {/* Status Header */}
+            <View style={[styles.statusHeader, { borderLeftColor: getStatusColor(invoice.status) }]}>
+              <View style={styles.statusInfo}>
+                <Text style={[styles.statusText, { color: getStatusColor(invoice.status) }]}>
+                  {getStatusLabel(invoice.status)}
                 </Text>
-              )}
+                <Text style={styles.invoiceNumber}>
+                  {data.invoice_number || 'Ohne Nummer'}
+                </Text>
+              </View>
+              <Text style={styles.grossAmount}>{formatCurrency(data.gross_amount)}</Text>
+            </View>
+
+            {/* Invoice Image */}
+            {invoice.image_base64 && (
+              <TouchableOpacity
+                style={styles.imageContainer}
+                onPress={() => setShowImageModal(true)}
+              >
+                <Image
+                  source={{ uri: `data:image/jpeg;base64,${invoice.image_base64}` }}
+                  style={styles.invoiceImage}
+                  resizeMode="cover"
+                />
+                <View style={styles.imageOverlay}>
+                  <Ionicons name="expand" size={24} color="#fff" />
+                  <Text style={styles.imageOverlayText}>Vergrößern</Text>
+                </View>
+              </TouchableOpacity>
+            )}
+
+            {/* Vendor Info */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Lieferant</Text>
+              <View style={styles.infoCard}>
+                <Text style={styles.vendorName}>{data.vendor_name || '-'}</Text>
+                <Text style={styles.vendorAddress}>{data.vendor_address || '-'}</Text>
+                {data.vendor_vat_id && (
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>USt-IdNr:</Text>
+                    <Text style={styles.infoValue}>{data.vendor_vat_id}</Text>
+                  </View>
+                )}
+                {data.vendor_iban && (
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>IBAN:</Text>
+                    <Text style={styles.infoValue}>{data.vendor_iban}</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+
+            {/* Invoice Details */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Rechnungsdaten</Text>
+              <View style={styles.detailsGrid}>
+                <View style={styles.detailItem}>
+                  <Text style={styles.detailLabel}>Rechnungsdatum</Text>
+                  <Text style={styles.detailValue}>{formatDate(data.invoice_date)}</Text>
+                </View>
+                <View style={styles.detailItem}>
+                  <Text style={styles.detailLabel}>Fälligkeitsdatum</Text>
+                  <Text style={styles.detailValue}>{formatDate(data.due_date)}</Text>
+                </View>
+                <View style={styles.detailItem}>
+                  <Text style={styles.detailLabel}>Währung</Text>
+                  <Text style={styles.detailValue}>{data.currency}</Text>
+                </View>
+                <View style={styles.detailItem}>
+                  <Text style={styles.detailLabel}>MwSt-Satz</Text>
+                  <Text style={styles.detailValue}>{data.vat_rate}%</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Amounts */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Beträge</Text>
+              <View style={styles.amountsCard}>
+                <View style={styles.amountRow}>
+                  <Text style={styles.amountLabel}>Netto:</Text>
+                  <Text style={styles.amountValue}>{formatCurrency(data.net_amount)}</Text>
+                </View>
+                <View style={styles.amountRow}>
+                  <Text style={styles.amountLabel}>MwSt ({data.vat_rate}%):</Text>
+                  <Text style={styles.amountValue}>{formatCurrency(data.vat_amount)}</Text>
+                </View>
+                <View style={styles.divider} />
+                <View style={styles.amountRow}>
+                  <Text style={styles.amountLabelBold}>Brutto:</Text>
+                  <Text style={styles.amountValueBold}>{formatCurrency(data.gross_amount)}</Text>
+                </View>
+              </View>
             </View>
           </View>
-        )}
 
-        {/* Audit Log */}
-        {auditLog.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Verlauf</Text>
-            {auditLog.map((log) => (
-              <View key={log.id} style={styles.auditItem}>
-                <View style={styles.auditDot} />
-                <View style={styles.auditContent}>
-                  <Text style={styles.auditAction}>{log.action}</Text>
-                  <Text style={styles.auditMeta}>
-                    {log.actor} • {formatDateTime(log.timestamp)}
+          {/* Right Column */}
+          <View style={isDesktop && styles.desktopRightColumn}>
+            {/* Accounting Section - NEW */}
+            <View style={styles.section}>
+              <View style={styles.sectionHeaderRow}>
+                <Text style={styles.sectionTitle}>Kontierung</Text>
+                {invoice.status !== 'archived' && (
+                  <TouchableOpacity
+                    style={styles.editButton}
+                    onPress={() => setShowAccountingModal(true)}
+                  >
+                    <Ionicons name="pencil" size={16} color="#6c5ce7" />
+                    <Text style={styles.editButtonText}>Bearbeiten</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+              <View style={styles.accountingCard}>
+                <View style={styles.accountingRow}>
+                  <Text style={styles.accountingLabel}>Sachkonto:</Text>
+                  <Text style={styles.accountingValue}>
+                    {data.account_number ? `${data.account_number} - ${data.account_name}` : 'Nicht zugewiesen'}
+                  </Text>
+                </View>
+                <View style={styles.accountingRow}>
+                  <Text style={styles.accountingLabel}>Kostenstelle:</Text>
+                  <Text style={styles.accountingValue}>
+                    {data.cost_center ? `${data.cost_center} - ${data.cost_center_name}` : 'Nicht zugewiesen'}
+                  </Text>
+                </View>
+                <View style={styles.accountingRow}>
+                  <Text style={styles.accountingLabel}>Buchungstext:</Text>
+                  <Text style={styles.accountingValue}>
+                    {data.booking_text || data.vendor_name || '-'}
                   </Text>
                 </View>
               </View>
-            ))}
+            </View>
+
+            {/* Line Items */}
+            {data.line_items && data.line_items.length > 0 && (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Positionen</Text>
+                {data.line_items.map((item, index) => (
+                  <View key={index} style={styles.lineItem}>
+                    <Text style={styles.lineItemDesc}>{item.description}</Text>
+                    <View style={styles.lineItemDetails}>
+                      <Text style={styles.lineItemQty}>
+                        {item.quantity} x {formatCurrency(item.unit_price)}
+                      </Text>
+                      <Text style={styles.lineItemTotal}>{formatCurrency(item.total)}</Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {/* Rejection Reason */}
+            {invoice.status === 'rejected' && invoice.rejection_reason && (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Ablehnungsgrund</Text>
+                <View style={styles.rejectionCard}>
+                  <Ionicons name="close-circle" size={20} color="#ff7675" />
+                  <Text style={styles.rejectionText}>{invoice.rejection_reason}</Text>
+                </View>
+              </View>
+            )}
+
+            {/* GoBD Info */}
+            {invoice.status === 'archived' && invoice.gobd_hash && (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>GoBD-Archivierung</Text>
+                <View style={styles.gobdCard}>
+                  <View style={styles.gobdRow}>
+                    <Ionicons name="shield-checkmark" size={20} color="#55efc4" />
+                    <Text style={styles.gobdLabel}>Revisionssicher archiviert</Text>
+                  </View>
+                  <View style={styles.gobdRow}>
+                    <Text style={styles.gobdHashLabel}>SHA-256 Hash:</Text>
+                  </View>
+                  <Text style={styles.gobdHash}>{invoice.gobd_hash}</Text>
+                  {invoice.archived_at && (
+                    <Text style={styles.gobdDate}>
+                      Archiviert am: {formatDateTime(invoice.archived_at)}
+                    </Text>
+                  )}
+                </View>
+              </View>
+            )}
+
+            {/* Audit Log */}
+            {auditLog.length > 0 && (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Verlauf</Text>
+                {auditLog.map((log) => (
+                  <View key={log.id} style={styles.auditItem}>
+                    <View style={styles.auditDot} />
+                    <View style={styles.auditContent}>
+                      <Text style={styles.auditAction}>{log.action}</Text>
+                      <Text style={styles.auditMeta}>
+                        {log.actor} • {formatDateTime(log.timestamp)}
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
           </View>
-        )}
+        </View>
 
         {/* Actions */}
         {invoice.status === 'pending' && (
-          <View style={styles.actionsSection}>
+          <View style={[styles.actionsSection, isDesktop && styles.desktopActions]}>
             <TouchableOpacity
               style={[styles.actionButton, styles.approveButton]}
               onPress={handleApprove}
@@ -425,7 +541,7 @@ export default function InvoiceDetailScreen() {
         )}
 
         {invoice.status === 'approved' && (
-          <View style={styles.actionsSection}>
+          <View style={[styles.actionsSection, isDesktop && styles.desktopActions]}>
             <TouchableOpacity
               style={[styles.actionButton, styles.archiveButton]}
               onPress={handleArchive}
@@ -444,7 +560,7 @@ export default function InvoiceDetailScreen() {
         )}
 
         {/* Export Options */}
-        <View style={styles.exportSection}>
+        <View style={[styles.exportSection, isDesktop && styles.desktopExport]}>
           <Text style={styles.exportTitle}>E-Rechnung Export</Text>
           <View style={styles.exportButtons}>
             <TouchableOpacity
@@ -467,6 +583,90 @@ export default function InvoiceDetailScreen() {
         </View>
       </ScrollView>
 
+      {/* Accounting Modal */}
+      <Modal
+        visible={showAccountingModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowAccountingModal(false)}
+      >
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <View style={[styles.modalContent, isDesktop && styles.desktopModalContent]}>
+            <Text style={styles.modalTitle}>Kontierung bearbeiten</Text>
+            
+            <Text style={styles.modalLabel}>Sachkonto (SKR03)</Text>
+            <View style={styles.pickerContainer}>
+              <Picker
+                selectedValue={selectedAccount}
+                onValueChange={setSelectedAccount}
+                style={styles.picker}
+                dropdownIconColor="#fff"
+              >
+                <Picker.Item label="-- Konto wählen --" value="" />
+                {accounts.map((acc) => (
+                  <Picker.Item
+                    key={acc.id}
+                    label={`${acc.number} - ${acc.name}`}
+                    value={acc.number}
+                  />
+                ))}
+              </Picker>
+            </View>
+            
+            <Text style={styles.modalLabel}>Kostenstelle</Text>
+            <View style={styles.pickerContainer}>
+              <Picker
+                selectedValue={selectedCostCenter}
+                onValueChange={setSelectedCostCenter}
+                style={styles.picker}
+                dropdownIconColor="#fff"
+              >
+                <Picker.Item label="-- Keine Kostenstelle --" value="" />
+                {costCenters.map((cc) => (
+                  <Picker.Item
+                    key={cc.id}
+                    label={`${cc.number} - ${cc.name}`}
+                    value={cc.number}
+                  />
+                ))}
+              </Picker>
+            </View>
+            
+            <Text style={styles.modalLabel}>Buchungstext</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={bookingText}
+              onChangeText={setBookingText}
+              placeholder="Buchungstext eingeben..."
+              placeholderTextColor="#636e72"
+            />
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={styles.modalCancelButton}
+                onPress={() => setShowAccountingModal(false)}
+              >
+                <Text style={styles.modalCancelText}>Abbrechen</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalConfirmButton}
+                onPress={handleSaveAccounting}
+                disabled={actionLoading}
+              >
+                {actionLoading ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.modalConfirmText}>Speichern</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
       {/* Reject Modal */}
       <Modal
         visible={showRejectModal}
@@ -478,10 +678,10 @@ export default function InvoiceDetailScreen() {
           style={styles.modalOverlay}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, isDesktop && styles.desktopModalContent]}>
             <Text style={styles.modalTitle}>Rechnung ablehnen</Text>
             <TextInput
-              style={styles.modalInput}
+              style={[styles.modalInput, { minHeight: 100, textAlignVertical: 'top' }]}
               value={rejectReason}
               onChangeText={setRejectReason}
               placeholder="Ablehnungsgrund eingeben..."
@@ -500,7 +700,7 @@ export default function InvoiceDetailScreen() {
                 <Text style={styles.modalCancelText}>Abbrechen</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.modalConfirmButton}
+                style={[styles.modalConfirmButton, { backgroundColor: '#ff7675' }]}
                 onPress={handleReject}
                 disabled={actionLoading}
               >
@@ -548,6 +748,22 @@ const styles = StyleSheet.create({
     backgroundColor: '#0f0f1a',
   },
   scrollView: {
+    flex: 1,
+  },
+  desktopContent: {
+    maxWidth: 1200,
+    alignSelf: 'center',
+    width: '100%',
+    paddingHorizontal: 40,
+  },
+  desktopLayout: {
+    flexDirection: 'row',
+    gap: 24,
+  },
+  desktopLeftColumn: {
+    flex: 1,
+  },
+  desktopRightColumn: {
     flex: 1,
   },
   loadingContainer: {
@@ -627,11 +843,30 @@ const styles = StyleSheet.create({
   section: {
     padding: 16,
   },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
   sectionTitle: {
     fontSize: 16,
     fontWeight: 'bold',
     color: '#a0a0a0',
     marginBottom: 12,
+  },
+  editButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: '#6c5ce720',
+    borderRadius: 8,
+  },
+  editButtonText: {
+    color: '#6c5ce7',
+    fontSize: 14,
+    marginLeft: 4,
   },
   infoCard: {
     backgroundColor: '#1a1a2e',
@@ -662,6 +897,25 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#fff',
     flex: 1,
+  },
+  accountingCard: {
+    backgroundColor: '#1a1a2e',
+    borderRadius: 12,
+    padding: 16,
+    borderLeftWidth: 3,
+    borderLeftColor: '#6c5ce7',
+  },
+  accountingRow: {
+    marginBottom: 12,
+  },
+  accountingLabel: {
+    fontSize: 12,
+    color: '#636e72',
+    marginBottom: 4,
+  },
+  accountingValue: {
+    fontSize: 14,
+    color: '#fff',
   },
   detailsGrid: {
     flexDirection: 'row',
@@ -817,6 +1071,10 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 12,
   },
+  desktopActions: {
+    maxWidth: 600,
+    alignSelf: 'center',
+  },
   actionButton: {
     flex: 1,
     flexDirection: 'row',
@@ -843,6 +1101,10 @@ const styles = StyleSheet.create({
   exportSection: {
     padding: 16,
     paddingBottom: 40,
+  },
+  desktopExport: {
+    maxWidth: 600,
+    alignSelf: 'center',
   },
   exportTitle: {
     fontSize: 14,
@@ -881,11 +1143,33 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 20,
   },
+  desktopModalContent: {
+    maxWidth: 500,
+    alignSelf: 'center',
+    width: '100%',
+  },
   modalTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#fff',
     marginBottom: 16,
+  },
+  modalLabel: {
+    fontSize: 14,
+    color: '#a0a0a0',
+    marginBottom: 8,
+    marginTop: 12,
+  },
+  pickerContainer: {
+    backgroundColor: '#0f0f1a',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#2d2d44',
+    overflow: 'hidden',
+  },
+  picker: {
+    color: '#fff',
+    height: 50,
   },
   modalInput: {
     backgroundColor: '#0f0f1a',
@@ -893,14 +1177,12 @@ const styles = StyleSheet.create({
     padding: 12,
     fontSize: 16,
     color: '#fff',
-    minHeight: 100,
-    textAlignVertical: 'top',
     borderWidth: 1,
     borderColor: '#2d2d44',
   },
   modalButtons: {
     flexDirection: 'row',
-    marginTop: 16,
+    marginTop: 20,
     gap: 12,
   },
   modalCancelButton: {
@@ -919,7 +1201,7 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 14,
     borderRadius: 8,
-    backgroundColor: '#ff7675',
+    backgroundColor: '#6c5ce7',
     alignItems: 'center',
   },
   modalConfirmText: {

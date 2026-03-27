@@ -7,11 +7,14 @@ import {
   TouchableOpacity,
   RefreshControl,
   ActivityIndicator,
+  TextInput,
+  useWindowDimensions,
+  Platform,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { apiService } from '../../src/services/api';
+import { apiService, Invoice } from '../../src/services/api';
 
 interface Stats {
   counts: {
@@ -20,6 +23,7 @@ interface Stats {
     approved: number;
     rejected: number;
     archived: number;
+    pending_reminders: number;
   };
   amounts: {
     net: number;
@@ -30,9 +34,15 @@ interface Stats {
 
 export default function DashboardScreen() {
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
+  
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<Invoice[]>([]);
+  const [searching, setSearching] = useState(false);
 
   const loadStats = async () => {
     try {
@@ -57,6 +67,35 @@ export default function DashboardScreen() {
     loadStats();
   };
 
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      return;
+    }
+    
+    setSearching(true);
+    try {
+      const results = await apiService.searchInvoices(searchQuery);
+      setSearchResults(results);
+    } catch (error) {
+      console.error('Search error:', error);
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  useEffect(() => {
+    const delaySearch = setTimeout(() => {
+      if (searchQuery.length >= 2) {
+        handleSearch();
+      } else {
+        setSearchResults([]);
+      }
+    }, 300);
+
+    return () => clearTimeout(delaySearch);
+  }, [searchQuery]);
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('de-DE', {
       style: 'currency',
@@ -79,30 +118,100 @@ export default function DashboardScreen() {
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <ScrollView
         style={styles.scrollView}
+        contentContainerStyle={[
+          styles.scrollContent,
+          isDesktop && styles.desktopContent
+        ]}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#6c5ce7" />
         }
       >
         {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>Candis-Kopie</Text>
-          <Text style={styles.subtitle}>KI-Rechnungsmanagement</Text>
+        <View style={[styles.header, isDesktop && styles.desktopHeader]}>
+          <View>
+            <Text style={styles.title}>Candis-Kopie</Text>
+            <Text style={styles.subtitle}>KI-Rechnungsmanagement</Text>
+          </View>
+          {isDesktop && (
+            <TouchableOpacity
+              style={styles.desktopUploadButton}
+              onPress={() => router.push('/upload')}
+            >
+              <Ionicons name="cloud-upload" size={20} color="#fff" />
+              <Text style={styles.desktopUploadText}>Rechnung hochladen</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
-        {/* Quick Action */}
-        <TouchableOpacity
-          style={styles.uploadButton}
-          onPress={() => router.push('/upload')}
-        >
-          <Ionicons name="cloud-upload" size={32} color="#fff" />
-          <Text style={styles.uploadButtonText}>Rechnung hochladen</Text>
-          <Text style={styles.uploadButtonSubtext}>KI-gestützte OCR-Erkennung</Text>
-        </TouchableOpacity>
+        {/* Search Bar */}
+        <View style={[styles.searchContainer, isDesktop && styles.desktopSearchContainer]}>
+          <View style={styles.searchInputContainer}>
+            <Ionicons name="search" size={20} color="#636e72" style={styles.searchIcon} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Volltextsuche in Rechnungen..."
+              placeholderTextColor="#636e72"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              autoCapitalize="none"
+            />
+            {searching && <ActivityIndicator size="small" color="#6c5ce7" />}
+            {searchQuery.length > 0 && !searching && (
+              <TouchableOpacity onPress={() => setSearchQuery('')}>
+                <Ionicons name="close-circle" size={20} color="#636e72" />
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
 
-        {/* Stats Cards */}
-        <View style={styles.statsGrid}>
+        {/* Search Results */}
+        {searchResults.length > 0 && (
+          <View style={[styles.searchResults, isDesktop && styles.desktopSearchResults]}>
+            <Text style={styles.searchResultsTitle}>
+              {searchResults.length} Ergebnis{searchResults.length !== 1 ? 'se' : ''} gefunden
+            </Text>
+            {searchResults.slice(0, 5).map((invoice) => (
+              <TouchableOpacity
+                key={invoice.id}
+                style={styles.searchResultItem}
+                onPress={() => {
+                  setSearchQuery('');
+                  setSearchResults([]);
+                  router.push(`/invoice/${invoice.id}`);
+                }}
+              >
+                <View style={styles.searchResultInfo}>
+                  <Text style={styles.searchResultNumber}>
+                    {invoice.data.invoice_number || 'Ohne Nummer'}
+                  </Text>
+                  <Text style={styles.searchResultVendor}>
+                    {invoice.data.vendor_name}
+                  </Text>
+                </View>
+                <Text style={styles.searchResultAmount}>
+                  {formatCurrency(invoice.data.gross_amount)}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
+        {/* Quick Action - Mobile Only */}
+        {!isDesktop && (
           <TouchableOpacity
-            style={[styles.statCard, styles.pendingCard]}
+            style={styles.uploadButton}
+            onPress={() => router.push('/upload')}
+          >
+            <Ionicons name="cloud-upload" size={32} color="#fff" />
+            <Text style={styles.uploadButtonText}>Rechnung hochladen</Text>
+            <Text style={styles.uploadButtonSubtext}>KI-gestützte OCR-Erkennung</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Stats Grid */}
+        <View style={[styles.statsGrid, isDesktop && styles.desktopStatsGrid]}>
+          <TouchableOpacity
+            style={[styles.statCard, styles.pendingCard, isDesktop && styles.desktopStatCard]}
             onPress={() => router.push('/invoices?status=pending')}
           >
             <Ionicons name="time" size={28} color="#ffeaa7" />
@@ -111,7 +220,7 @@ export default function DashboardScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.statCard, styles.approvedCard]}
+            style={[styles.statCard, styles.approvedCard, isDesktop && styles.desktopStatCard]}
             onPress={() => router.push('/invoices?status=approved')}
           >
             <Ionicons name="checkmark-circle" size={28} color="#55efc4" />
@@ -120,7 +229,7 @@ export default function DashboardScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.statCard, styles.rejectedCard]}
+            style={[styles.statCard, styles.rejectedCard, isDesktop && styles.desktopStatCard]}
             onPress={() => router.push('/invoices?status=rejected')}
           >
             <Ionicons name="close-circle" size={28} color="#ff7675" />
@@ -129,7 +238,7 @@ export default function DashboardScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.statCard, styles.archivedCard]}
+            style={[styles.statCard, styles.archivedCard, isDesktop && styles.desktopStatCard]}
             onPress={() => router.push('/archive')}
           >
             <Ionicons name="archive" size={28} color="#74b9ff" />
@@ -138,40 +247,74 @@ export default function DashboardScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Financial Summary */}
-        <View style={styles.financialCard}>
-          <Text style={styles.financialTitle}>Finanzübersicht</Text>
-          <View style={styles.financialRow}>
-            <Text style={styles.financialLabel}>Netto:</Text>
-            <Text style={styles.financialValue}>{formatCurrency(stats?.amounts.net || 0)}</Text>
+        {/* Desktop: Two Column Layout */}
+        <View style={[styles.bottomSection, isDesktop && styles.desktopBottomSection]}>
+          {/* Financial Summary */}
+          <View style={[styles.financialCard, isDesktop && styles.desktopFinancialCard]}>
+            <Text style={styles.financialTitle}>Finanzübersicht</Text>
+            <View style={styles.financialRow}>
+              <Text style={styles.financialLabel}>Netto:</Text>
+              <Text style={styles.financialValue}>{formatCurrency(stats?.amounts.net || 0)}</Text>
+            </View>
+            <View style={styles.financialRow}>
+              <Text style={styles.financialLabel}>MwSt:</Text>
+              <Text style={styles.financialValue}>{formatCurrency(stats?.amounts.vat || 0)}</Text>
+            </View>
+            <View style={styles.divider} />
+            <View style={styles.financialRow}>
+              <Text style={styles.financialLabelBold}>Brutto:</Text>
+              <Text style={styles.financialValueBold}>{formatCurrency(stats?.amounts.gross || 0)}</Text>
+            </View>
           </View>
-          <View style={styles.financialRow}>
-            <Text style={styles.financialLabel}>MwSt:</Text>
-            <Text style={styles.financialValue}>{formatCurrency(stats?.amounts.vat || 0)}</Text>
-          </View>
-          <View style={styles.divider} />
-          <View style={styles.financialRow}>
-            <Text style={styles.financialLabelBold}>Brutto:</Text>
-            <Text style={styles.financialValueBold}>{formatCurrency(stats?.amounts.gross || 0)}</Text>
-          </View>
+
+          {/* Reminders Card */}
+          {(stats?.counts.pending_reminders || 0) > 0 && (
+            <View style={[styles.reminderCard, isDesktop && styles.desktopReminderCard]}>
+              <View style={styles.reminderHeader}>
+                <Ionicons name="notifications" size={24} color="#fd79a8" />
+                <Text style={styles.reminderTitle}>Erinnerungen</Text>
+              </View>
+              <Text style={styles.reminderCount}>
+                {stats?.counts.pending_reminders} offene Erinnerung{stats?.counts.pending_reminders !== 1 ? 'en' : ''}
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Quick Links */}
-        <View style={styles.quickLinks}>
+        <View style={[styles.quickLinks, isDesktop && styles.desktopQuickLinks]}>
           <TouchableOpacity
-            style={styles.quickLink}
+            style={[styles.quickLink, isDesktop && styles.desktopQuickLink]}
             onPress={() => router.push('/export')}
           >
             <Ionicons name="download-outline" size={24} color="#6c5ce7" />
             <Text style={styles.quickLinkText}>DATEV Export</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={styles.quickLink}
+            style={[styles.quickLink, isDesktop && styles.desktopQuickLink]}
             onPress={() => router.push('/settings')}
           >
             <Ionicons name="cog-outline" size={24} color="#6c5ce7" />
             <Text style={styles.quickLinkText}>Einstellungen</Text>
           </TouchableOpacity>
+          {isDesktop && (
+            <>
+              <TouchableOpacity
+                style={[styles.quickLink, styles.desktopQuickLink]}
+                onPress={() => router.push('/invoices')}
+              >
+                <Ionicons name="document-text-outline" size={24} color="#6c5ce7" />
+                <Text style={styles.quickLinkText}>Alle Rechnungen</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.quickLink, styles.desktopQuickLink]}
+                onPress={() => router.push('/archive')}
+              >
+                <Ionicons name="archive-outline" size={24} color="#6c5ce7" />
+                <Text style={styles.quickLinkText}>Archiv</Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -185,6 +328,15 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 30,
+  },
+  desktopContent: {
+    maxWidth: 1200,
+    alignSelf: 'center',
+    width: '100%',
+    paddingHorizontal: 40,
   },
   loadingContainer: {
     flex: 1,
@@ -200,6 +352,12 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingTop: 10,
   },
+  desktopHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 30,
+  },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
@@ -209,6 +367,85 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#6c5ce7',
     marginTop: 4,
+  },
+  desktopUploadButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#6c5ce7',
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 12,
+  },
+  desktopUploadText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginLeft: 10,
+  },
+  searchContainer: {
+    paddingHorizontal: 20,
+    marginBottom: 16,
+  },
+  desktopSearchContainer: {
+    paddingHorizontal: 0,
+    marginBottom: 24,
+  },
+  searchInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1a1a2e',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    height: 50,
+  },
+  searchIcon: {
+    marginRight: 10,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: '#fff',
+  },
+  searchResults: {
+    marginHorizontal: 20,
+    backgroundColor: '#1a1a2e',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+  },
+  desktopSearchResults: {
+    marginHorizontal: 0,
+  },
+  searchResultsTitle: {
+    fontSize: 14,
+    color: '#a0a0a0',
+    marginBottom: 12,
+  },
+  searchResultItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2d2d44',
+  },
+  searchResultInfo: {
+    flex: 1,
+  },
+  searchResultNumber: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  searchResultVendor: {
+    fontSize: 12,
+    color: '#a0a0a0',
+    marginTop: 2,
+  },
+  searchResultAmount: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#55efc4',
   },
   uploadButton: {
     backgroundColor: '#6c5ce7',
@@ -239,6 +476,10 @@ const styles = StyleSheet.create({
     padding: 10,
     marginTop: 10,
   },
+  desktopStatsGrid: {
+    padding: 0,
+    marginTop: 20,
+  },
   statCard: {
     width: '46%',
     margin: '2%',
@@ -246,6 +487,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
+  },
+  desktopStatCard: {
+    width: '23%',
+    margin: '1%',
+    padding: 24,
   },
   pendingCard: {
     borderLeftWidth: 4,
@@ -274,12 +520,24 @@ const styles = StyleSheet.create({
     color: '#a0a0a0',
     marginTop: 4,
   },
+  bottomSection: {
+    paddingHorizontal: 20,
+  },
+  desktopBottomSection: {
+    flexDirection: 'row',
+    paddingHorizontal: 0,
+    gap: 20,
+    marginTop: 20,
+  },
   financialCard: {
     backgroundColor: '#1a1a2e',
-    marginHorizontal: 20,
     marginTop: 10,
     borderRadius: 12,
     padding: 20,
+  },
+  desktopFinancialCard: {
+    flex: 1,
+    marginTop: 0,
   },
   financialTitle: {
     fontSize: 18,
@@ -315,11 +573,42 @@ const styles = StyleSheet.create({
     backgroundColor: '#2d2d44',
     marginVertical: 12,
   },
+  reminderCard: {
+    backgroundColor: '#1a1a2e',
+    marginTop: 10,
+    borderRadius: 12,
+    padding: 20,
+    borderLeftWidth: 4,
+    borderLeftColor: '#fd79a8',
+  },
+  desktopReminderCard: {
+    flex: 1,
+    marginTop: 0,
+  },
+  reminderHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  reminderTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginLeft: 10,
+  },
+  reminderCount: {
+    fontSize: 14,
+    color: '#fd79a8',
+  },
   quickLinks: {
     flexDirection: 'row',
     paddingHorizontal: 20,
     marginTop: 16,
-    marginBottom: 30,
+  },
+  desktopQuickLinks: {
+    paddingHorizontal: 0,
+    marginTop: 24,
+    flexWrap: 'wrap',
   },
   quickLink: {
     flex: 1,
@@ -330,6 +619,12 @@ const styles = StyleSheet.create({
     marginHorizontal: 5,
     borderRadius: 12,
     padding: 16,
+  },
+  desktopQuickLink: {
+    flex: 0,
+    flexGrow: 1,
+    marginHorizontal: 8,
+    marginBottom: 8,
   },
   quickLinkText: {
     color: '#fff',
