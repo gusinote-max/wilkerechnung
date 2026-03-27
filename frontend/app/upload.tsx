@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,22 +8,66 @@ import {
   Alert,
   ActivityIndicator,
   ScrollView,
+  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system';
 import { apiService } from '../src/services/api';
+
+// Helper: Convert blob URI or File to base64 (works on web)
+const fileToBase64 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      // Remove data:...;base64, prefix
+      const base64 = result.split(';base64,')[1];
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+};
+
+// Helper: Fetch blob from URI and convert to base64
+const uriToBase64 = async (uri: string): Promise<string> => {
+  const response = await fetch(uri);
+  const blob = await response.blob();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      const base64 = result.split(';base64,')[1];
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+};
 
 export default function UploadScreen() {
   const router = useRouter();
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [selectedBase64, setSelectedBase64] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState('');
+  const [fileName, setFileName] = useState<string>('');
+  const [isWeb, setIsWeb] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    // Detect web platform on client side (SSR-safe)
+    setIsWeb(Platform.OS === 'web');
+  }, []);
 
   const pickFromCamera = async () => {
+    if (isWeb) {
+      Alert.alert('Hinweis', 'Kamera ist im Web-Browser nicht verfügbar. Bitte verwenden Sie die Galerie oder Dokument-Option.');
+      return;
+    }
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
       Alert.alert('Berechtigung erforderlich', 'Bitte erlauben Sie den Kamerazugriff.');
@@ -41,34 +85,96 @@ export default function UploadScreen() {
       if (asset.base64) {
         const mimeType = asset.mimeType || 'image/jpeg';
         setSelectedImage(`data:${mimeType};base64,${asset.base64}`);
+        setSelectedBase64(asset.base64);
+        setFileName('camera-photo.jpg');
       }
     }
   };
 
   const pickFromGallery = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Berechtigung erforderlich', 'Bitte erlauben Sie den Galerie-Zugriff.');
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      quality: 0.8,
-      base64: true,
-    });
-
-    if (!result.canceled && result.assets[0]) {
-      const asset = result.assets[0];
-      if (asset.base64) {
-        const mimeType = asset.mimeType || 'image/jpeg';
-        setSelectedImage(`data:${mimeType};base64,${asset.base64}`);
+    try {
+      if (isWeb) {
+        // On web, use a file input for images
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.onchange = async (e: any) => {
+          const file = e.target.files[0];
+          if (file) {
+            try {
+              const base64 = await fileToBase64(file);
+              const dataUrl = `data:${file.type};base64,${base64}`;
+              setSelectedImage(dataUrl);
+              setSelectedBase64(base64);
+              setFileName(file.name);
+            } catch (err) {
+              console.error('File read error:', err);
+              Alert.alert('Fehler', 'Datei konnte nicht gelesen werden.');
+            }
+          }
+        };
+        input.click();
+        return;
       }
+
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Berechtigung erforderlich', 'Bitte erlauben Sie den Galerie-Zugriff.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        quality: 0.8,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        const asset = result.assets[0];
+        if (asset.base64) {
+          const mimeType = asset.mimeType || 'image/jpeg';
+          setSelectedImage(`data:${mimeType};base64,${asset.base64}`);
+          setSelectedBase64(asset.base64);
+          setFileName(asset.fileName || 'gallery-image.jpg');
+        }
+      }
+    } catch (error) {
+      console.error('Gallery picker error:', error);
+      Alert.alert('Fehler', 'Bild konnte nicht geladen werden.');
     }
   };
 
   const pickDocument = async () => {
     try {
+      if (isWeb) {
+        // On web, use a file input for documents
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*,application/pdf';
+        input.onchange = async (e: any) => {
+          const file = e.target.files[0];
+          if (file) {
+            try {
+              const base64 = await fileToBase64(file);
+              // For images, show preview; for PDFs, show placeholder
+              if (file.type.startsWith('image/')) {
+                setSelectedImage(`data:${file.type};base64,${base64}`);
+              } else {
+                // PDF - show PDF icon placeholder
+                setSelectedImage('pdf');
+              }
+              setSelectedBase64(base64);
+              setFileName(file.name);
+            } catch (err) {
+              console.error('File read error:', err);
+              Alert.alert('Fehler', 'Datei konnte nicht gelesen werden.');
+            }
+          }
+        };
+        input.click();
+        return;
+      }
+
       const result = await DocumentPicker.getDocumentAsync({
         type: ['image/*', 'application/pdf'],
         copyToCacheDirectory: true,
@@ -76,12 +182,33 @@ export default function UploadScreen() {
 
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
-        // Read file as base64
-        const base64 = await FileSystem.readAsStringAsync(asset.uri, {
-          encoding: FileSystem.EncodingType.Base64,
-        });
-        const mimeType = asset.mimeType || 'image/jpeg';
-        setSelectedImage(`data:${mimeType};base64,${base64}`);
+        // On native, use the URI to read file
+        try {
+          const FileSystem = require('expo-file-system');
+          const base64 = await FileSystem.readAsStringAsync(asset.uri, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+          const mimeType = asset.mimeType || 'application/pdf';
+          if (mimeType.startsWith('image/')) {
+            setSelectedImage(`data:${mimeType};base64,${base64}`);
+          } else {
+            setSelectedImage('pdf');
+          }
+          setSelectedBase64(base64);
+          setFileName(asset.name || 'document');
+        } catch (fsError) {
+          // Fallback: try using fetch for blob URIs
+          console.log('FileSystem failed, trying fetch...', fsError);
+          const base64 = await uriToBase64(asset.uri);
+          const mimeType = asset.mimeType || 'application/pdf';
+          if (mimeType.startsWith('image/')) {
+            setSelectedImage(`data:${mimeType};base64,${base64}`);
+          } else {
+            setSelectedImage('pdf');
+          }
+          setSelectedBase64(base64);
+          setFileName(asset.name || 'document');
+        }
       }
     } catch (error) {
       console.error('Document pick error:', error);
@@ -90,8 +217,8 @@ export default function UploadScreen() {
   };
 
   const uploadInvoice = async () => {
-    if (!selectedImage) {
-      Alert.alert('Fehler', 'Bitte wählen Sie zuerst ein Bild aus.');
+    if (!selectedBase64) {
+      Alert.alert('Fehler', 'Bitte wählen Sie zuerst ein Bild oder Dokument aus.');
       return;
     }
 
@@ -100,14 +227,8 @@ export default function UploadScreen() {
 
     try {
       setProgress('Analysiere Rechnung mit KI...');
-      
-      // Extract just the base64 part if it's a data URL
-      let base64Data = selectedImage;
-      if (selectedImage.includes(';base64,')) {
-        base64Data = selectedImage.split(';base64,')[1];
-      }
 
-      const invoice = await apiService.createInvoice(base64Data);
+      const invoice = await apiService.createInvoice(selectedBase64);
       
       setProgress('Fertig!');
       
@@ -146,32 +267,48 @@ export default function UploadScreen() {
         {/* Image Preview */}
         {selectedImage && (
           <View style={styles.previewContainer}>
-            <Image
-              source={{ uri: selectedImage }}
-              style={styles.preview}
-              resizeMode="contain"
-            />
+            {selectedImage === 'pdf' ? (
+              <View style={styles.pdfPreview}>
+                <Ionicons name="document-text" size={64} color="#6c5ce7" />
+                <Text style={styles.pdfFileName}>{fileName}</Text>
+              </View>
+            ) : (
+              <Image
+                source={{ uri: selectedImage }}
+                style={styles.preview}
+                resizeMode="contain"
+              />
+            )}
             <TouchableOpacity
               style={styles.removeButton}
-              onPress={() => setSelectedImage(null)}
+              onPress={() => {
+                setSelectedImage(null);
+                setSelectedBase64(null);
+                setFileName('');
+              }}
             >
               <Ionicons name="close-circle" size={32} color="#ff7675" />
             </TouchableOpacity>
+            {fileName ? (
+              <Text style={styles.fileNameText}>{fileName}</Text>
+            ) : null}
           </View>
         )}
 
         {/* Upload Options */}
         {!selectedImage && (
           <View style={styles.optionsContainer}>
-            <TouchableOpacity style={styles.optionCard} onPress={pickFromCamera}>
-              <View style={[styles.optionIcon, { backgroundColor: '#6c5ce720' }]}>
-                <Ionicons name="camera" size={32} color="#6c5ce7" />
-              </View>
-              <Text style={styles.optionTitle}>Kamera</Text>
-              <Text style={styles.optionText}>Rechnung fotografieren</Text>
-            </TouchableOpacity>
+            {!isWeb && (
+              <TouchableOpacity style={styles.optionCard} onPress={pickFromCamera}>
+                <View style={[styles.optionIcon, { backgroundColor: '#6c5ce720' }]}>
+                  <Ionicons name="camera" size={32} color="#6c5ce7" />
+                </View>
+                <Text style={styles.optionTitle}>Kamera</Text>
+                <Text style={styles.optionText}>Rechnung fotografieren</Text>
+              </TouchableOpacity>
+            )}
 
-            <TouchableOpacity style={styles.optionCard} onPress={pickFromGallery}>
+            <TouchableOpacity style={[styles.optionCard, isWeb && styles.optionCardWide]} onPress={pickFromGallery}>
               <View style={[styles.optionIcon, { backgroundColor: '#00cec920' }]}>
                 <Ionicons name="images" size={32} color="#00cec9" />
               </View>
@@ -179,7 +316,7 @@ export default function UploadScreen() {
               <Text style={styles.optionText}>Bild auswählen</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.optionCard} onPress={pickDocument}>
+            <TouchableOpacity style={[styles.optionCard, isWeb && styles.optionCardWide]} onPress={pickDocument}>
               <View style={[styles.optionIcon, { backgroundColor: '#fd79a820' }]}>
                 <Ionicons name="document" size={32} color="#fd79a8" />
               </View>
@@ -267,6 +404,19 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: '#1a1a2e',
   },
+  pdfPreview: {
+    width: '100%',
+    height: 200,
+    borderRadius: 12,
+    backgroundColor: '#1a1a2e',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pdfFileName: {
+    fontSize: 14,
+    color: '#a0a0a0',
+    marginTop: 8,
+  },
   removeButton: {
     position: 'absolute',
     top: 10,
@@ -274,11 +424,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#0f0f1a',
     borderRadius: 16,
   },
+  fileNameText: {
+    fontSize: 12,
+    color: '#636e72',
+    textAlign: 'center',
+    marginTop: 8,
+  },
   optionsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
     marginBottom: 20,
+    gap: 12,
   },
   optionCard: {
     width: '31%',
@@ -286,6 +443,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
+  },
+  optionCardWide: {
+    width: '48%',
   },
   optionIcon: {
     width: 64,
