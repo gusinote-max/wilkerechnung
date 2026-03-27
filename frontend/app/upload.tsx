@@ -56,6 +56,8 @@ export default function UploadScreen() {
   const [progress, setProgress] = useState('');
   const [fileName, setFileName] = useState<string>('');
   const [isWeb, setIsWeb] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<any>(null);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -223,33 +225,34 @@ export default function UploadScreen() {
     }
 
     setUploading(true);
-    setProgress('Lade Rechnung hoch...');
+    setProgress('Rechnung wird hochgeladen...');
+    setAnalysisResult(null);
+    setAnalysisError(null);
 
     try {
-      setProgress('Analysiere Rechnung mit KI...');
+      setProgress('KI analysiert Rechnung...');
 
       const invoice = await apiService.createInvoice(selectedBase64);
       
-      setProgress('Fertig!');
+      setProgress('');
+      setAnalysisResult(invoice);
       
-      Alert.alert(
-        'Erfolg',
-        'Rechnung wurde erfolgreich analysiert und erstellt.',
-        [
-          {
-            text: 'Zur Rechnung',
-            onPress: () => router.replace(`/invoice/${invoice.id}`),
-          },
-        ]
-      );
     } catch (error: any) {
       console.error('Upload error:', error);
-      const message = error.response?.data?.detail || 'Upload fehlgeschlagen. Bitte versuchen Sie es erneut.';
-      Alert.alert('Fehler', message);
+      const message = error.response?.data?.detail || error.message || 'Upload fehlgeschlagen. Bitte versuchen Sie es erneut.';
+      setAnalysisError(message);
+      setProgress('');
     } finally {
       setUploading(false);
-      setProgress('');
     }
+  };
+
+  const resetUpload = () => {
+    setSelectedImage(null);
+    setSelectedBase64(null);
+    setFileName('');
+    setAnalysisResult(null);
+    setAnalysisError(null);
   };
 
   return (
@@ -264,8 +267,107 @@ export default function UploadScreen() {
           </Text>
         </View>
 
+        {/* Analysis Result - Success */}
+        {analysisResult && (
+          <View style={styles.resultContainer}>
+            <View style={styles.resultHeader}>
+              <Ionicons name="checkmark-circle" size={32} color="#55efc4" />
+              <Text style={styles.resultTitle}>KI-Analyse erfolgreich!</Text>
+            </View>
+            
+            <View style={styles.resultCard}>
+              <View style={styles.resultRow}>
+                <Text style={styles.resultLabel}>Rechnungsnr.</Text>
+                <Text style={styles.resultValue}>{analysisResult.data?.invoice_number || '—'}</Text>
+              </View>
+              <View style={styles.resultRow}>
+                <Text style={styles.resultLabel}>Lieferant</Text>
+                <Text style={styles.resultValue}>{analysisResult.data?.vendor_name || '—'}</Text>
+              </View>
+              <View style={styles.resultRow}>
+                <Text style={styles.resultLabel}>Datum</Text>
+                <Text style={styles.resultValue}>{analysisResult.data?.invoice_date || '—'}</Text>
+              </View>
+              <View style={styles.resultRow}>
+                <Text style={styles.resultLabel}>Netto</Text>
+                <Text style={styles.resultValue}>
+                  {analysisResult.data?.net_amount ? `${Number(analysisResult.data.net_amount).toFixed(2)} ${analysisResult.data.currency || 'EUR'}` : '—'}
+                </Text>
+              </View>
+              <View style={styles.resultRow}>
+                <Text style={styles.resultLabel}>MwSt</Text>
+                <Text style={styles.resultValue}>
+                  {analysisResult.data?.vat_amount ? `${Number(analysisResult.data.vat_amount).toFixed(2)} ${analysisResult.data.currency || 'EUR'}` : '—'}
+                </Text>
+              </View>
+              <View style={[styles.resultRow, styles.resultRowTotal]}>
+                <Text style={[styles.resultLabel, styles.resultLabelBold]}>Gesamt</Text>
+                <Text style={[styles.resultValue, styles.resultValueBold]}>
+                  {analysisResult.data?.gross_amount ? `${Number(analysisResult.data.gross_amount).toFixed(2)} ${analysisResult.data.currency || 'EUR'}` : '—'}
+                </Text>
+              </View>
+              {analysisResult.data?.line_items && analysisResult.data.line_items.length > 0 && (
+                <View style={styles.resultItems}>
+                  <Text style={styles.resultItemsTitle}>{analysisResult.data.line_items.length} Position(en) erkannt</Text>
+                </View>
+              )}
+            </View>
+
+            <View style={styles.resultActions}>
+              <TouchableOpacity
+                style={styles.resultButtonPrimary}
+                onPress={() => router.replace(`/invoice/${analysisResult.id}`)}
+              >
+                <Ionicons name="open" size={20} color="#fff" />
+                <Text style={styles.resultButtonText}>Rechnung öffnen</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.resultButtonSecondary}
+                onPress={resetUpload}
+              >
+                <Ionicons name="add-circle" size={20} color="#6c5ce7" />
+                <Text style={styles.resultButtonTextSecondary}>Weitere hochladen</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {/* Analysis Error */}
+        {analysisError && (
+          <View style={styles.errorContainer}>
+            <Ionicons name="warning" size={32} color="#ff7675" />
+            <Text style={styles.errorTitle}>Analyse fehlgeschlagen</Text>
+            <Text style={styles.errorMessage}>{analysisError}</Text>
+            <TouchableOpacity
+              style={styles.errorRetryButton}
+              onPress={() => {
+                setAnalysisError(null);
+                uploadInvoice();
+              }}
+            >
+              <Ionicons name="refresh" size={18} color="#fff" />
+              <Text style={styles.errorRetryText}>Erneut versuchen</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.resultButtonSecondary}
+              onPress={resetUpload}
+            >
+              <Text style={styles.resultButtonTextSecondary}>Neue Datei wählen</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Upload Progress */}
+        {uploading && (
+          <View style={styles.progressContainer}>
+            <ActivityIndicator size="large" color="#6c5ce7" />
+            <Text style={styles.progressText}>{progress}</Text>
+            <Text style={styles.progressHint}>Dies kann einige Sekunden dauern...</Text>
+          </View>
+        )}
+
         {/* Image Preview */}
-        {selectedImage && (
+        {selectedImage && !analysisResult && !analysisError && !uploading && (
           <View style={styles.previewContainer}>
             {selectedImage === 'pdf' ? (
               <View style={styles.pdfPreview}>
@@ -281,11 +383,7 @@ export default function UploadScreen() {
             )}
             <TouchableOpacity
               style={styles.removeButton}
-              onPress={() => {
-                setSelectedImage(null);
-                setSelectedBase64(null);
-                setFileName('');
-              }}
+              onPress={resetUpload}
             >
               <Ionicons name="close-circle" size={32} color="#ff7675" />
             </TouchableOpacity>
@@ -296,7 +394,7 @@ export default function UploadScreen() {
         )}
 
         {/* Upload Options */}
-        {!selectedImage && (
+        {!selectedImage && !analysisResult && !analysisError && !uploading && (
           <View style={styles.optionsContainer}>
             {!isWeb && (
               <TouchableOpacity style={styles.optionCard} onPress={pickFromCamera}>
@@ -327,7 +425,7 @@ export default function UploadScreen() {
         )}
 
         {/* Upload Button */}
-        {selectedImage && (
+        {selectedImage && !analysisResult && !analysisError && !uploading && (
           <TouchableOpacity
             style={[styles.uploadButton, uploading && styles.uploadButtonDisabled]}
             onPress={uploadInvoice}
@@ -347,21 +445,23 @@ export default function UploadScreen() {
           </TouchableOpacity>
         )}
 
-        {/* Info */}
-        <View style={styles.infoContainer}>
-          <View style={styles.infoItem}>
-            <Ionicons name="checkmark-circle" size={20} color="#55efc4" />
-            <Text style={styles.infoText}>KI-gestützte OCR-Erkennung</Text>
+        {/* Info - only show when no result */}
+        {!analysisResult && !uploading && (
+          <View style={styles.infoContainer}>
+            <View style={styles.infoItem}>
+              <Ionicons name="checkmark-circle" size={20} color="#55efc4" />
+              <Text style={styles.infoText}>KI-gestützte OCR-Erkennung</Text>
+            </View>
+            <View style={styles.infoItem}>
+              <Ionicons name="checkmark-circle" size={20} color="#55efc4" />
+              <Text style={styles.infoText}>PDF und Bilder werden unterstützt</Text>
+            </View>
+            <View style={styles.infoItem}>
+              <Ionicons name="checkmark-circle" size={20} color="#55efc4" />
+              <Text style={styles.infoText}>Automatische Datenextraktion</Text>
+            </View>
           </View>
-          <View style={styles.infoItem}>
-            <Ionicons name="checkmark-circle" size={20} color="#55efc4" />
-            <Text style={styles.infoText}>Deutsche Rechnungen optimiert</Text>
-          </View>
-          <View style={styles.infoItem}>
-            <Ionicons name="checkmark-circle" size={20} color="#55efc4" />
-            <Text style={styles.infoText}>Automatische Datenextraktion</Text>
-          </View>
-        </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -498,5 +598,157 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#a0a0a0',
     marginLeft: 10,
+  },
+  // Analysis Result Styles
+  resultContainer: {
+    marginBottom: 20,
+  },
+  resultHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1a2e1a',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    gap: 12,
+  },
+  resultTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#55efc4',
+  },
+  resultCard: {
+    backgroundColor: '#1a1a2e',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+  },
+  resultRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2a2a3e',
+  },
+  resultRowTotal: {
+    borderBottomWidth: 0,
+    paddingTop: 12,
+    marginTop: 4,
+    borderTopWidth: 2,
+    borderTopColor: '#6c5ce7',
+  },
+  resultLabel: {
+    fontSize: 14,
+    color: '#a0a0a0',
+  },
+  resultLabelBold: {
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  resultValue: {
+    fontSize: 14,
+    color: '#fff',
+    fontWeight: '500',
+  },
+  resultValueBold: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#6c5ce7',
+  },
+  resultItems: {
+    marginTop: 8,
+    paddingTop: 8,
+  },
+  resultItemsTitle: {
+    fontSize: 12,
+    color: '#636e72',
+    fontStyle: 'italic',
+  },
+  resultActions: {
+    gap: 10,
+  },
+  resultButtonPrimary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#6c5ce7',
+    borderRadius: 12,
+    padding: 16,
+    gap: 8,
+  },
+  resultButtonSecondary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#6c5ce7',
+    padding: 14,
+    gap: 8,
+  },
+  resultButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  resultButtonTextSecondary: {
+    color: '#6c5ce7',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  // Error Styles
+  errorContainer: {
+    backgroundColor: '#2e1a1a',
+    borderRadius: 12,
+    padding: 20,
+    alignItems: 'center',
+    marginBottom: 20,
+    gap: 10,
+  },
+  errorTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#ff7675',
+  },
+  errorMessage: {
+    fontSize: 13,
+    color: '#a0a0a0',
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  errorRetryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ff7675',
+    borderRadius: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    gap: 8,
+    marginTop: 8,
+  },
+  errorRetryText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  // Progress Styles
+  progressContainer: {
+    alignItems: 'center',
+    padding: 40,
+    backgroundColor: '#1a1a2e',
+    borderRadius: 12,
+    marginBottom: 20,
+    gap: 16,
+  },
+  progressText: {
+    fontSize: 16,
+    color: '#6c5ce7',
+    fontWeight: '600',
+  },
+  progressHint: {
+    fontSize: 12,
+    color: '#636e72',
   },
 });

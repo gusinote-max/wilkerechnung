@@ -41,6 +41,7 @@ export default function InvoiceDetailScreen() {
   const [selectedCostCenter, setSelectedCostCenter] = useState<string>('');
   const [bookingText, setBookingText] = useState<string>('');
   const [showAccountingModal, setShowAccountingModal] = useState(false);
+  const [activeKontenrahmen, setActiveKontenrahmen] = useState('SKR03');
 
   useEffect(() => {
     if (id) {
@@ -88,6 +89,8 @@ export default function InvoiceDetailScreen() {
       } catch (settingsError) {
         console.warn('Could not load settings, using default SKR03');
       }
+      
+      setActiveKontenrahmen(kontenrahmen);
       
       const [accountsData, costCentersData] = await Promise.all([
         apiService.getAccounts(kontenrahmen),
@@ -608,7 +611,7 @@ export default function InvoiceDetailScreen() {
           <View style={[styles.modalContent, isDesktop && styles.desktopModalContent]}>
             <Text style={styles.modalTitle}>Kontierung bearbeiten</Text>
             
-            <Text style={styles.modalLabel}>Sachkonto (SKR03)</Text>
+            <Text style={styles.modalLabel}>Sachkonto ({activeKontenrahmen})</Text>
             <View style={styles.pickerContainer}>
               <Picker
                 selectedValue={selectedAccount}

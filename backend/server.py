@@ -1416,9 +1416,31 @@ async def create_invoice(invoice_create: InvoiceCreate):
     try:
         invoice_data = await extract_invoice_with_ai(invoice_create.image_base64)
         
+        # For PDFs: store the rendered first page image instead of raw PDF data
+        stored_image = invoice_create.image_base64
+        raw_base64 = invoice_create.image_base64
+        if raw_base64.startswith("data:"):
+            parts = raw_base64.split(";base64,")
+            if len(parts) == 2:
+                raw_base64 = parts[1]
+        
+        if _is_pdf_base64(raw_base64):
+            try:
+                pdf_bytes = base64.b64decode(raw_base64)
+                doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+                page = doc.load_page(0)
+                mat = fitz.Matrix(2.0, 2.0)
+                pix = page.get_pixmap(matrix=mat)
+                img_bytes = pix.tobytes("png")
+                stored_image = f"data:image/png;base64,{base64.b64encode(img_bytes).decode()}"
+                doc.close()
+                logger.info("PDF first page stored as PNG preview image")
+            except Exception as e:
+                logger.warning(f"Could not convert PDF to preview image: {e}")
+        
         invoice = Invoice(
             data=invoice_data,
-            image_base64=invoice_create.image_base64,
+            image_base64=stored_image,
             status=InvoiceStatus.PENDING
         )
         
