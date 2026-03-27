@@ -78,8 +78,19 @@ export default function InvoiceDetailScreen() {
 
   const loadAccountingData = async () => {
     try {
+      // Fetch the kontenrahmen from settings instead of hardcoding SKR03
+      let kontenrahmen = 'SKR03';
+      try {
+        const settings = await apiService.getSettings();
+        if (settings.default_kontenrahmen) {
+          kontenrahmen = settings.default_kontenrahmen;
+        }
+      } catch (settingsError) {
+        console.warn('Could not load settings, using default SKR03');
+      }
+      
       const [accountsData, costCentersData] = await Promise.all([
-        apiService.getAccounts('SKR03'),
+        apiService.getAccounts(kontenrahmen),
         apiService.getCostCenters(),
       ]);
       setAccounts(accountsData);

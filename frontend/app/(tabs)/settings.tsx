@@ -10,6 +10,8 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Modal,
+  FlatList,
   useWindowDimensions,
   Switch,
 } from 'react-native';
@@ -59,6 +61,9 @@ export default function SettingsScreen() {
   // Form states
   const [apiKey, setApiKey] = useState('');
   const [model, setModel] = useState('');
+  const [aiModels, setAiModels] = useState<Array<{id: string, name: string, pricing_prompt: string, pricing_completion: string}>>([]);
+  const [showModelPicker, setShowModelPicker] = useState(false);
+  const [modelSearch, setModelSearch] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [companyIban, setCompanyIban] = useState('');
   const [companyBic, setCompanyBic] = useState('');
@@ -120,6 +125,14 @@ export default function SettingsScreen() {
       setCompanyIban(settingsData.company_iban || '');
       setCompanyBic(settingsData.company_bic || '');
       setKontenrahmen(settingsData.default_kontenrahmen || 'SKR03');
+      
+      // Load available AI models from OpenRouter
+      try {
+        const modelsData = await apiService.getAIModels();
+        setAiModels(modelsData);
+      } catch (e) {
+        console.log('Could not load AI models');
+      }
     } catch (error) {
       console.error('Error loading settings:', error);
       Alert.alert('Fehler', 'Einstellungen konnten nicht geladen werden');
@@ -359,15 +372,23 @@ export default function SettingsScreen() {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>KI-Modell</Text>
-              <TextInput
-                style={styles.input}
-                value={model}
-                onChangeText={setModel}
-                placeholder="openai/gpt-4o"
-                placeholderTextColor="#636e72"
-                autoCapitalize="none"
-              />
+              <Text style={styles.label}>KI-Modell (Vision)</Text>
+              <TouchableOpacity
+                style={styles.modelPickerButton}
+                onPress={() => {
+                  setModelSearch('');
+                  setShowModelPicker(true);
+                }}
+              >
+                <Ionicons name="sparkles" size={18} color="#6c5ce7" />
+                <Text style={styles.modelPickerText} numberOfLines={1}>
+                  {aiModels.find(m => m.id === model)?.name || model || 'Modell wählen...'}
+                </Text>
+                <Ionicons name="chevron-down" size={18} color="#636e72" />
+              </TouchableOpacity>
+              <Text style={styles.modelHint}>
+                {aiModels.length} Modelle verfügbar via OpenRouter
+              </Text>
             </View>
           </View>
 
@@ -693,6 +714,73 @@ export default function SettingsScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+      
+      {/* Model Picker Modal */}
+      <Modal
+        visible={showModelPicker}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowModelPicker(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>KI-Modell wählen</Text>
+              <TouchableOpacity onPress={() => setShowModelPicker(false)}>
+                <Ionicons name="close" size={24} color="#fff" />
+              </TouchableOpacity>
+            </View>
+            
+            <TextInput
+              style={styles.modelSearchInput}
+              value={modelSearch}
+              onChangeText={setModelSearch}
+              placeholder="Modell suchen... (z.B. gpt, claude, gemini)"
+              placeholderTextColor="#636e72"
+              autoCapitalize="none"
+              autoFocus={true}
+            />
+            
+            <FlatList
+              data={aiModels.filter(m => {
+                if (!modelSearch) return true;
+                const q = modelSearch.toLowerCase();
+                return m.id.toLowerCase().includes(q) || m.name.toLowerCase().includes(q);
+              })}
+              keyExtractor={(item) => item.id}
+              style={styles.modelList}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[
+                    styles.modelItem,
+                    item.id === model && styles.modelItemSelected,
+                  ]}
+                  onPress={() => {
+                    setModel(item.id);
+                    setShowModelPicker(false);
+                  }}
+                >
+                  <View style={styles.modelItemLeft}>
+                    <Text style={[
+                      styles.modelItemName,
+                      item.id === model && styles.modelItemNameSelected,
+                    ]}>{item.name}</Text>
+                    <Text style={styles.modelItemId}>{item.id}</Text>
+                  </View>
+                  {item.id === model && (
+                    <Ionicons name="checkmark-circle" size={22} color="#6c5ce7" />
+                  )}
+                </TouchableOpacity>
+              )}
+              ListEmptyComponent={
+                <View style={styles.modelEmpty}>
+                  <Text style={styles.modelEmptyText}>Keine Modelle gefunden</Text>
+                </View>
+              }
+            />
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -1015,5 +1103,103 @@ const styles = StyleSheet.create({
     color: '#636e72',
     marginTop: 8,
     textAlign: 'center',
+  },
+  modelPickerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1a1a2e',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#2a2a3e',
+    padding: 14,
+    gap: 10,
+  },
+  modelPickerText: {
+    flex: 1,
+    color: '#fff',
+    fontSize: 14,
+  },
+  modelHint: {
+    fontSize: 11,
+    color: '#636e72',
+    marginTop: 6,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#1a1a2e',
+    borderRadius: 16,
+    width: '100%',
+    maxWidth: 500,
+    maxHeight: '80%',
+    overflow: 'hidden',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2a2a3e',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  modelSearchInput: {
+    backgroundColor: '#0f0f1a',
+    borderRadius: 8,
+    padding: 12,
+    margin: 12,
+    color: '#fff',
+    fontSize: 14,
+    borderWidth: 1,
+    borderColor: '#2a2a3e',
+  },
+  modelList: {
+    maxHeight: 400,
+  },
+  modelItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#0f0f1a',
+  },
+  modelItemSelected: {
+    backgroundColor: '#6c5ce715',
+  },
+  modelItemLeft: {
+    flex: 1,
+    marginRight: 10,
+  },
+  modelItemName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  modelItemNameSelected: {
+    color: '#6c5ce7',
+  },
+  modelItemId: {
+    fontSize: 11,
+    color: '#636e72',
+    marginTop: 2,
+  },
+  modelEmpty: {
+    padding: 30,
+    alignItems: 'center',
+  },
+  modelEmptyText: {
+    color: '#636e72',
+    fontSize: 14,
   },
 });

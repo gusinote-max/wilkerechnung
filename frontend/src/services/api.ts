@@ -401,6 +401,20 @@ export const apiService = {
     const response = await api.get(`/audit/${invoiceId}`);
     return response.data;
   },
+
+  // AI Models
+  async getAIModels(): Promise<AIModel[]> {
+    const response = await api.get('/ai-models');
+    return response.data;
+  },
 };
+
+export interface AIModel {
+  id: string;
+  name: string;
+  pricing_prompt: string;
+  pricing_completion: string;
+  context_length: number;
+}
 
 export default apiService;

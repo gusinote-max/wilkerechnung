@@ -24,6 +24,7 @@ import re
 import aiosmtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+import fitz  # PyMuPDF for PDF to image conversion
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -743,6 +744,14 @@ async def advance_workflow_stage(invoice_id: str, approver_id: str, approver_nam
         
         return False
 
+def _is_pdf_base64(b64_string: str) -> bool:
+    """Check if base64 data is a PDF by examining the magic bytes"""
+    try:
+        raw = base64.b64decode(b64_string[:20])
+        return raw[:4] == b'%PDF'
+    except Exception:
+        return False
+
 async def extract_invoice_with_ai(image_base64: str) -> InvoiceData:
     """Extract invoice data using OpenRouter AI"""
     settings = await get_settings()
@@ -787,11 +796,57 @@ Antworte NUR mit dem JSON, ohne zusätzlichen Text:
 Falls ein Feld nicht gefunden wird, verwende einen leeren String oder 0 für Zahlen."""
 
     media_type = "image/jpeg"
+    raw_base64 = image_base64
+    
     if image_base64.startswith("data:"):
         parts = image_base64.split(";base64,")
         if len(parts) == 2:
             media_type = parts[0].replace("data:", "")
-            image_base64 = parts[1]
+            raw_base64 = parts[1]
+    
+    # If the file is a PDF, convert to image using PyMuPDF
+    if media_type == "application/pdf" or _is_pdf_base64(raw_base64):
+        logger.info("PDF detected, converting to image...")
+        try:
+            pdf_bytes = base64.b64decode(raw_base64)
+            doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+            
+            # Render all pages (up to 5) and combine into images
+            image_contents = []
+            for page_num in range(min(len(doc), 5)):
+                page = doc.load_page(page_num)
+                # Render at 2x zoom for better OCR quality
+                mat = fitz.Matrix(2.0, 2.0)
+                pix = page.get_pixmap(matrix=mat)
+                img_bytes = pix.tobytes("png")
+                img_b64 = base64.b64encode(img_bytes).decode()
+                image_contents.append({
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:image/png;base64,{img_b64}"
+                    }
+                })
+            doc.close()
+            
+            logger.info(f"PDF converted: {len(image_contents)} pages rendered as images")
+            
+            # Build message with all page images
+            message_content = [{"type": "text", "text": prompt}] + image_contents
+            
+        except Exception as e:
+            logger.error(f"PDF conversion error: {str(e)}")
+            raise HTTPException(status_code=400, detail=f"PDF-Konvertierung fehlgeschlagen: {str(e)}")
+    else:
+        # Regular image
+        message_content = [
+            {"type": "text", "text": prompt},
+            {
+                "type": "image_url",
+                "image_url": {
+                    "url": f"data:{media_type};base64,{raw_base64}"
+                }
+            }
+        ]
     
     try:
         async with httpx.AsyncClient() as http_client:
@@ -808,21 +863,13 @@ Falls ein Feld nicht gefunden wird, verwende einen leeren String oder 0 für Zah
                     "messages": [
                         {
                             "role": "user",
-                            "content": [
-                                {"type": "text", "text": prompt},
-                                {
-                                    "type": "image_url",
-                                    "image_url": {
-                                        "url": f"data:{media_type};base64,{image_base64}"
-                                    }
-                                }
-                            ]
+                            "content": message_content
                         }
                     ],
                     "max_tokens": 2000,
                     "temperature": 0.1
                 },
-                timeout=60.0
+                timeout=120.0
             )
             
             if response.status_code != 200:
@@ -1786,6 +1833,76 @@ async def update_settings(settings: Settings):
     )
     
     return settings
+
+# ===== OPENROUTER AI MODELS =====
+
+@api_router.get("/ai-models")
+async def get_ai_models():
+    """Fetch available models from OpenRouter API"""
+    settings = await get_settings()
+    
+    if not settings.ai_settings.api_key:
+        # Return popular default models if no API key
+        return _get_default_models()
+    
+    try:
+        async with httpx.AsyncClient() as http_client:
+            response = await http_client.get(
+                "https://openrouter.ai/api/v1/models",
+                headers={
+                    "Authorization": f"Bearer {settings.ai_settings.api_key}",
+                },
+                timeout=15.0
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                models = data.get("data", [])
+                
+                # Filter to vision-capable models and format
+                vision_models = []
+                for m in models:
+                    model_id = m.get("id", "")
+                    name = m.get("name", model_id)
+                    pricing = m.get("pricing", {})
+                    arch = m.get("architecture", {})
+                    modality = arch.get("modality", "")
+                    
+                    # Only include models that support image input
+                    if "image" in modality or any(kw in model_id.lower() for kw in ["gpt-4o", "claude-3", "claude-sonnet", "claude-opus", "gemini", "llama-3.2", "llama-4", "qwen2-vl", "pixtral"]):
+                        vision_models.append({
+                            "id": model_id,
+                            "name": name,
+                            "pricing_prompt": pricing.get("prompt", "0"),
+                            "pricing_completion": pricing.get("completion", "0"),
+                            "context_length": m.get("context_length", 0),
+                        })
+                
+                # Sort by name
+                vision_models.sort(key=lambda x: x["name"])
+                
+                if vision_models:
+                    return vision_models
+                    
+            # Fallback to defaults
+            return _get_default_models()
+            
+    except Exception as e:
+        logger.error(f"Error fetching OpenRouter models: {str(e)}")
+        return _get_default_models()
+
+def _get_default_models():
+    """Return a curated list of popular vision models"""
+    return [
+        {"id": "openai/gpt-4o", "name": "GPT-4o (OpenAI)", "pricing_prompt": "0.0025", "pricing_completion": "0.01", "context_length": 128000},
+        {"id": "openai/gpt-4o-mini", "name": "GPT-4o Mini (OpenAI)", "pricing_prompt": "0.00015", "pricing_completion": "0.0006", "context_length": 128000},
+        {"id": "anthropic/claude-sonnet-4", "name": "Claude Sonnet 4 (Anthropic)", "pricing_prompt": "0.003", "pricing_completion": "0.015", "context_length": 200000},
+        {"id": "anthropic/claude-3.5-sonnet", "name": "Claude 3.5 Sonnet (Anthropic)", "pricing_prompt": "0.003", "pricing_completion": "0.015", "context_length": 200000},
+        {"id": "google/gemini-2.5-flash-preview", "name": "Gemini 2.5 Flash (Google)", "pricing_prompt": "0.00015", "pricing_completion": "0.001", "context_length": 1000000},
+        {"id": "google/gemini-2.0-flash-001", "name": "Gemini 2.0 Flash (Google)", "pricing_prompt": "0.0001", "pricing_completion": "0.0004", "context_length": 1000000},
+        {"id": "meta-llama/llama-4-maverick", "name": "Llama 4 Maverick (Meta)", "pricing_prompt": "0.0002", "pricing_completion": "0.0008", "context_length": 131072},
+        {"id": "qwen/qwen2.5-vl-72b-instruct", "name": "Qwen 2.5 VL 72B (Alibaba)", "pricing_prompt": "0.0004", "pricing_completion": "0.0016", "context_length": 32768},
+    ]
 
 # ===== WEBHOOKS (n8n) =====
 
