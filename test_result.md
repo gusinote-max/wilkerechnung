@@ -411,6 +411,21 @@ frontend:
       - working: true
         agent: "main"
         comment: "AI settings (OpenRouter), company data, webhook config"
+      - working: true
+        agent: "main"
+        comment: "Added User Management (Benutzerverwaltung) UI with role badges, edit modal, toast notifications. Replaced all Alert.alert with web-safe toast/modal components. Added logout confirmation modal and delete user confirmation modal."
+
+  - task: "User Management UI"
+    implemented: true
+    working: true
+    file: "/app/frontend/app/(tabs)/settings.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "User list with role badges (Admin/Manager/Buchhalter/Nur Lesen), edit modal for role assignment, user activate/deactivate, user delete with confirmation modal. Only visible for admin users. Own user cannot be edited."
 
 metadata:
   created_by: "main_agent"
