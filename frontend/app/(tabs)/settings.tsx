@@ -57,6 +57,8 @@ export default function SettingsScreen() {
   const [emailSettings, setEmailSettings] = useState<EmailSettingsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [toast, setToast] = useState<{type: 'success' | 'error'; message: string} | null>(null);
 
   // Form states
   const [apiKey, setApiKey] = useState('');
@@ -282,6 +284,67 @@ export default function SettingsScreen() {
     }
   };
 
+  // User management helpers
+  const getRoleColor = (role: string) => {
+    switch (role) {
+      case 'admin': return '#e74c3c';
+      case 'manager': return '#f39c12';
+      case 'accountant': return '#3498db';
+      case 'viewer': return '#95a5a6';
+      default: return '#636e72';
+    }
+  };
+
+  const getRoleName = (role: string) => {
+    switch (role) {
+      case 'admin': return 'Admin';
+      case 'manager': return 'Manager';
+      case 'accountant': return 'Buchhalter';
+      case 'viewer': return 'Nur Lesen';
+      default: return role;
+    }
+  };
+
+  const handleUpdateUserRole = async (userId: string, newRole: string) => {
+    try {
+      await apiService.updateUser(userId, { role: newRole } as any);
+      setUsers(users.map(u => u.id === userId ? { ...u, role: newRole as any } : u));
+      setEditingUser(null);
+      setToast({ type: 'success', message: 'Benutzerrolle wurde aktualisiert' });
+    } catch (error: any) {
+      setToast({ type: 'error', message: 'Rolle konnte nicht geändert werden' });
+    }
+  };
+
+  const handleToggleUserActive = async (userId: string, active: boolean) => {
+    try {
+      await apiService.updateUser(userId, { active } as any);
+      setUsers(users.map(u => u.id === userId ? { ...u, active } : u));
+      setToast({ type: 'success', message: active ? 'Benutzer aktiviert' : 'Benutzer deaktiviert' });
+    } catch (error: any) {
+      setToast({ type: 'error', message: 'Status konnte nicht geändert werden' });
+    }
+  };
+
+  const handleDeleteUser = async (userId: string) => {
+    try {
+      await apiService.deleteUser(userId);
+      setUsers(users.filter(u => u.id !== userId));
+      setEditingUser(null);
+      setToast({ type: 'success', message: 'Benutzer wurde gelöscht' });
+    } catch (error: any) {
+      setToast({ type: 'error', message: 'Benutzer konnte nicht gelöscht werden' });
+    }
+  };
+
+  // Toast auto-dismiss
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
+
   const handleLogout = () => {
     Alert.alert(
       'Abmelden',
@@ -348,6 +411,52 @@ export default function SettingsScreen() {
                 <Text style={styles.loginPromptText}>Anmelden</Text>
                 <Text style={styles.loginPromptSubtext}>Für erweiterte Funktionen</Text>
               </TouchableOpacity>
+            </View>
+          )}
+
+          {/* ===== USER MANAGEMENT ===== */}
+          {isAuthenticated && user?.role === 'admin' && (
+            <View style={[styles.section, isDesktop && styles.desktopSection]}>
+              <View style={styles.sectionHeader}>
+                <Ionicons name="people" size={20} color="#6c5ce7" />
+                <Text style={styles.sectionTitle}>Benutzerverwaltung</Text>
+                <View style={styles.userCount}>
+                  <Text style={styles.userCountText}>{users.length}</Text>
+                </View>
+              </View>
+              
+              {users.length === 0 ? (
+                <Text style={styles.emptyText}>Keine Benutzer vorhanden</Text>
+              ) : (
+                users.map((u) => (
+                  <View key={u.id} style={styles.userListItem}>
+                    <View style={styles.userListAvatar}>
+                      <Ionicons 
+                        name={u.role === 'admin' ? 'shield-checkmark' : u.role === 'manager' ? 'briefcase' : u.role === 'accountant' ? 'calculator' : 'eye'} 
+                        size={22} 
+                        color={u.active ? '#6c5ce7' : '#636e72'} 
+                      />
+                    </View>
+                    <View style={styles.userListInfo}>
+                      <Text style={[styles.userListName, !u.active && styles.userInactive]}>{u.name}</Text>
+                      <Text style={styles.userListEmail}>{u.email}</Text>
+                    </View>
+                    <View style={[styles.userRoleBadge, { backgroundColor: getRoleColor(u.role) + '20' }]}>
+                      <Text style={[styles.userRoleBadgeText, { color: getRoleColor(u.role) }]}>
+                        {getRoleName(u.role)}
+                      </Text>
+                    </View>
+                    {u.id !== user?.id && (
+                      <TouchableOpacity 
+                        style={styles.userEditBtn}
+                        onPress={() => setEditingUser(u)}
+                      >
+                        <Ionicons name="create-outline" size={20} color="#6c5ce7" />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                ))
+              )}
             </View>
           )}
 
@@ -715,6 +824,98 @@ export default function SettingsScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
       
+
+      {/* User Edit Modal */}
+      {editingUser && (
+        <Modal
+          visible={true}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setEditingUser(null)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Benutzer bearbeiten</Text>
+                <TouchableOpacity onPress={() => setEditingUser(null)}>
+                  <Ionicons name="close" size={24} color="#fff" />
+                </TouchableOpacity>
+              </View>
+              
+              <ScrollView style={{ padding: 16, maxHeight: 500 }}>
+                <View style={styles.userEditHeader}>
+                  <Ionicons name="person-circle" size={48} color="#6c5ce7" />
+                  <Text style={styles.userEditName}>{editingUser.name}</Text>
+                  <Text style={styles.userEditEmail}>{editingUser.email}</Text>
+                </View>
+
+                <Text style={styles.userEditSectionTitle}>Rolle zuweisen</Text>
+                {(['admin', 'manager', 'accountant', 'viewer'] as const).map((role) => (
+                  <TouchableOpacity
+                    key={role}
+                    style={[
+                      styles.roleOption,
+                      editingUser.role === role && styles.roleOptionSelected,
+                    ]}
+                    onPress={() => handleUpdateUserRole(editingUser.id, role)}
+                  >
+                    <Ionicons
+                      name={role === 'admin' ? 'shield-checkmark' : role === 'manager' ? 'briefcase' : role === 'accountant' ? 'calculator' : 'eye'}
+                      size={22}
+                      color={editingUser.role === role ? '#fff' : getRoleColor(role)}
+                    />
+                    <View style={styles.roleOptionInfo}>
+                      <Text style={[styles.roleOptionName, editingUser.role === role && styles.roleOptionNameSelected]}>
+                        {getRoleName(role)}
+                      </Text>
+                      <Text style={[styles.roleOptionDesc, editingUser.role === role && styles.roleOptionDescSelected]}>
+                        {role === 'admin' ? 'Voller Zugriff auf alle Funktionen' :
+                         role === 'manager' ? 'Rechnungen genehmigen & verwalten' :
+                         role === 'accountant' ? 'Kontierung & Exporte' :
+                         'Nur Lesen & Ansicht'}
+                      </Text>
+                    </View>
+                    {editingUser.role === role && (
+                      <Ionicons name="checkmark-circle" size={22} color="#fff" />
+                    )}
+                  </TouchableOpacity>
+                ))}
+
+                <View style={styles.userEditActions}>
+                  <TouchableOpacity
+                    style={[styles.userToggleBtn, editingUser.active ? styles.userDeactivateBtn : styles.userActivateBtn]}
+                    onPress={() => handleToggleUserActive(editingUser.id, !editingUser.active)}
+                  >
+                    <Ionicons name={editingUser.active ? 'close-circle' : 'checkmark-circle'} size={18} color="#fff" />
+                    <Text style={styles.userToggleBtnText}>
+                      {editingUser.active ? 'Deaktivieren' : 'Aktivieren'}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.userDeleteBtn}
+                    onPress={() => handleDeleteUser(editingUser.id)}
+                  >
+                    <Ionicons name="trash" size={18} color="#ff7675" />
+                    <Text style={styles.userDeleteBtnText}>Benutzer löschen</Text>
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+      )}
+
+      {/* Toast */}
+      {toast && (
+        <View style={[styles.toastBanner, toast.type === 'success' ? styles.toastBannerSuccess : styles.toastBannerError]}>
+          <Ionicons name={toast.type === 'success' ? 'checkmark-circle' : 'alert-circle'} size={20} color="#fff" />
+          <Text style={styles.toastBannerText}>{toast.message}</Text>
+          <TouchableOpacity onPress={() => setToast(null)}>
+            <Ionicons name="close" size={16} color="#fff" />
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Model Picker Modal */}
       <Modal
         visible={showModelPicker}
