@@ -1513,8 +1513,8 @@ async def delete_cost_center(center_id: str):
 # ===== INVOICES =====
 
 @api_router.post("/invoices", response_model=Invoice)
-async def create_invoice(invoice_create: InvoiceCreate):
-    """Create a new invoice with OCR extraction"""
+async def create_invoice(invoice_create: InvoiceCreate, current_user: dict = Depends(require_accountant_or_above())):
+    """Create a new invoice with OCR extraction (Admin/Manager/Accountant)"""
     try:
         invoice_data = await extract_invoice_with_ai(invoice_create.image_base64)
         
