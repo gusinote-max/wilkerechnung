@@ -1170,7 +1170,6 @@ export default function SettingsScreen() {
             )}
           </View>
           )}
-          {/* End Admin-only sections */}
 
           {/* Nicht-Admin Hinweis */}
           {!isAdmin && isAuthenticated && (
