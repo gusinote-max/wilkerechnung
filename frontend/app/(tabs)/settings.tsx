@@ -582,7 +582,7 @@ export default function SettingsScreen() {
             </View>
           )}
 
-          {/* AI Settings - Admin only */}
+          {/* Admin-only Settings */}
           {isAdmin && (
           <View style={[styles.section, isDesktop && styles.desktopSection]}>
             <View style={styles.sectionHeader}>
@@ -623,8 +623,10 @@ export default function SettingsScreen() {
               </Text>
             </View>
           </View>
+          )}
 
           {/* Company Settings */}
+          {isAdmin && (
           <View style={[styles.section, isDesktop && styles.desktopSection]}>
             <View style={styles.sectionHeader}>
               <Ionicons name="business" size={20} color="#00cec9" />
@@ -689,7 +691,9 @@ export default function SettingsScreen() {
               </View>
             </View>
           </View>
+          )}
 
+          {isAdmin && (
           <TouchableOpacity
             style={styles.saveButton}
             onPress={saveSettings}
@@ -704,8 +708,10 @@ export default function SettingsScreen() {
               </>
             )}
           </TouchableOpacity>
+          )}
 
           {/* DATEV Unternehmen Online */}
+          {isAdmin && (
           <View style={[styles.section, isDesktop && styles.desktopSection]}>
             <View style={styles.sectionHeader}>
               <Ionicons name="cloud-upload" size={20} color="#00b894" />
@@ -813,8 +819,10 @@ export default function SettingsScreen() {
               </>
             )}
           </View>
+          )}
 
           {/* Banking / Zahlungen */}
+          {isAdmin && (
           <View style={[styles.section, isDesktop && styles.desktopSection]}>
             <View style={styles.sectionHeader}>
               <Ionicons name="card" size={20} color="#0984e3" />
@@ -924,8 +932,10 @@ export default function SettingsScreen() {
               </>
             )}
           </View>
+          )}
 
           {/* Email Settings */}
+          {isAdmin && (
           <View style={[styles.section, isDesktop && styles.desktopSection]}>
             <View style={styles.sectionHeader}>
               <Ionicons name="mail" size={20} color="#fd79a8" />
@@ -1024,8 +1034,10 @@ export default function SettingsScreen() {
               </TouchableOpacity>
             </View>
           </View>
+          )}
 
           {/* Workflows */}
+          {isAdmin && (
           <View style={[styles.section, isDesktop && styles.desktopSection]}>
             <View style={styles.sectionHeader}>
               <Ionicons name="git-branch" size={20} color="#74b9ff" />
@@ -1106,8 +1118,10 @@ export default function SettingsScreen() {
               </View>
             )}
           </View>
+          )}
 
           {/* Webhooks */}
+          {isAdmin && (
           <View style={[styles.section, isDesktop && styles.desktopSection]}>
             <View style={styles.sectionHeader}>
               <Ionicons name="git-network" size={20} color="#fd79a8" />
