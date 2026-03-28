@@ -1169,9 +1169,8 @@ export default function SettingsScreen() {
               </View>
             )}
           </View>
-
-          {/* End Admin-only sections */}
           )}
+          {/* End Admin-only sections */}
 
           {/* Nicht-Admin Hinweis */}
           {!isAdmin && isAuthenticated && (
