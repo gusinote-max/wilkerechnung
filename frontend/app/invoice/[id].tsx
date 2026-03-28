@@ -19,12 +19,21 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Picker } from '@react-native-picker/picker';
 import { apiService, Invoice, AuditLog, Account, CostCenter, InvoiceData } from '../../src/services/api';
+import useAuthStore from '../../src/store/authStore';
 
 export default function InvoiceDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { width } = useWindowDimensions();
   const isDesktop = width >= 768;
+  const { user } = useAuthStore();
+
+  // Role-based permissions
+  const userRole = user?.role || 'viewer';
+  const isAdmin = userRole === 'admin';
+  const isManagerOrAbove = ['admin', 'manager'].includes(userRole);
+  const isAccountantOrAbove = ['admin', 'manager', 'accountant'].includes(userRole);
+  const isViewer = userRole === 'viewer';
   
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [auditLog, setAuditLog] = useState<AuditLog[]>([]);
@@ -589,7 +598,7 @@ export default function InvoiceDetailScreen() {
         </View>
 
         {/* Actions */}
-        {invoice.status === 'pending' && (
+        {invoice.status === 'pending' && isManagerOrAbove && (
           <View style={[styles.actionsSection, isDesktop && styles.desktopActions]}>
             <TouchableOpacity
               style={[styles.actionButton, styles.approveButton]}
@@ -613,18 +622,20 @@ export default function InvoiceDetailScreen() {
               <Ionicons name="close" size={20} color="#fff" />
               <Text style={styles.actionButtonText}>Ablehnen</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.actionButton, styles.deleteButton]}
-              onPress={() => setShowDeleteConfirm(true)}
-              disabled={actionLoading}
-            >
-              <Ionicons name="trash" size={20} color="#fff" />
-              <Text style={styles.actionButtonText}>Löschen</Text>
-            </TouchableOpacity>
+            {isAdmin && (
+              <TouchableOpacity
+                style={[styles.actionButton, styles.deleteButton]}
+                onPress={() => setShowDeleteConfirm(true)}
+                disabled={actionLoading}
+              >
+                <Ionicons name="trash" size={20} color="#fff" />
+                <Text style={styles.actionButtonText}>Löschen</Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
 
-        {invoice.status === 'approved' && (
+        {invoice.status === 'approved' && isManagerOrAbove && (
           <View style={[styles.actionsSection, isDesktop && styles.desktopActions]}>
             <TouchableOpacity
               style={[styles.actionButton, styles.archiveButton]}
@@ -640,18 +651,20 @@ export default function InvoiceDetailScreen() {
                 </>
               )}
             </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.actionButton, styles.deleteButton]}
-              onPress={() => setShowDeleteConfirm(true)}
-              disabled={actionLoading}
-            >
-              <Ionicons name="trash" size={20} color="#fff" />
-              <Text style={styles.actionButtonText}>Löschen</Text>
-            </TouchableOpacity>
+            {isAdmin && (
+              <TouchableOpacity
+                style={[styles.actionButton, styles.deleteButton]}
+                onPress={() => setShowDeleteConfirm(true)}
+                disabled={actionLoading}
+              >
+                <Ionicons name="trash" size={20} color="#fff" />
+                <Text style={styles.actionButtonText}>Löschen</Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
 
-        {(invoice.status === 'rejected') && (
+        {(invoice.status === 'rejected') && isAdmin && (
           <View style={[styles.actionsSection, isDesktop && styles.desktopActions]}>
             <TouchableOpacity
               style={[styles.actionButton, styles.deleteButton]}
@@ -664,7 +677,7 @@ export default function InvoiceDetailScreen() {
           </View>
         )}
 
-        {(invoice.status === 'archived') && (
+        {(invoice.status === 'archived') && isAdmin && (
           <View style={[styles.actionsSection, isDesktop && styles.desktopActions]}>
             <TouchableOpacity
               style={[styles.actionButton, styles.deleteButton]}
@@ -678,7 +691,7 @@ export default function InvoiceDetailScreen() {
         )}
 
         {/* DATEV & Payment Integration */}
-        {invoice.status !== 'pending' && (
+        {invoice.status !== 'pending' && isAccountantOrAbove && (
           <View style={[styles.exportSection, isDesktop && styles.desktopExport, { marginTop: 0 }]}>
             <Text style={styles.exportTitle}>Integrationen</Text>
             <View style={{ gap: 10 }}>

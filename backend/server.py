@@ -517,6 +517,22 @@ async def require_role(roles: List[UserRole], credentials: HTTPAuthorizationCred
         raise HTTPException(status_code=403, detail="Keine Berechtigung")
     return user
 
+# Role-based dependency shortcuts
+def require_admin():
+    async def check(credentials: HTTPAuthorizationCredentials = Depends(security)):
+        return await require_role([UserRole.ADMIN], credentials)
+    return check
+
+def require_manager_or_above():
+    async def check(credentials: HTTPAuthorizationCredentials = Depends(security)):
+        return await require_role([UserRole.ADMIN, UserRole.MANAGER], credentials)
+    return check
+
+def require_accountant_or_above():
+    async def check(credentials: HTTPAuthorizationCredentials = Depends(security)):
+        return await require_role([UserRole.ADMIN, UserRole.MANAGER, UserRole.ACCOUNTANT], credentials)
+    return check
+
 # ===================== HELPER FUNCTIONS =====================
 async def get_settings() -> Settings:
     """Get global settings from database"""
@@ -1402,8 +1418,8 @@ async def get_user(user_id: str):
     return UserResponse(**user)
 
 @api_router.put("/users/{user_id}", response_model=UserResponse)
-async def update_user(user_id: str, update: UserUpdate):
-    """Update user"""
+async def update_user(user_id: str, update: UserUpdate, current_user: dict = Depends(require_admin())):
+    """Update user (Admin only)"""
     user = await db.users.find_one({"id": user_id})
     if not user:
         raise HTTPException(status_code=404, detail="Benutzer nicht gefunden")
@@ -1416,8 +1432,8 @@ async def update_user(user_id: str, update: UserUpdate):
     return UserResponse(**updated)
 
 @api_router.delete("/users/{user_id}")
-async def delete_user(user_id: str):
-    """Delete user"""
+async def delete_user(user_id: str, current_user: dict = Depends(require_admin())):
+    """Delete user (Admin only)"""
     result = await db.users.delete_one({"id": user_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Benutzer nicht gefunden")
@@ -1633,8 +1649,8 @@ async def update_invoice(invoice_id: str, update: InvoiceUpdate):
     return Invoice(**updated)
 
 @api_router.delete("/invoices/{invoice_id}")
-async def delete_invoice(invoice_id: str):
-    """Delete an invoice"""
+async def delete_invoice(invoice_id: str, current_user: dict = Depends(require_admin())):
+    """Delete an invoice (Admin only)"""
     invoice = await db.invoices.find_one({"id": invoice_id})
     if not invoice:
         raise HTTPException(status_code=404, detail="Rechnung nicht gefunden")
@@ -1650,8 +1666,8 @@ async def delete_invoice(invoice_id: str):
 # ===== APPROVAL WORKFLOW =====
 
 @api_router.post("/invoices/{invoice_id}/approve", response_model=Invoice)
-async def approve_invoice(invoice_id: str, approval: ApprovalRequest):
-    """Approve an invoice"""
+async def approve_invoice(invoice_id: str, approval: ApprovalRequest, current_user: dict = Depends(require_manager_or_above())):
+    """Approve an invoice (Admin/Manager only)"""
     invoice = await db.invoices.find_one({"id": invoice_id})
     if not invoice:
         raise HTTPException(status_code=404, detail="Rechnung nicht gefunden")
@@ -1674,8 +1690,8 @@ async def approve_invoice(invoice_id: str, approval: ApprovalRequest):
     return Invoice(**updated)
 
 @api_router.post("/invoices/{invoice_id}/reject", response_model=Invoice)
-async def reject_invoice(invoice_id: str, rejection: RejectionRequest):
-    """Reject an invoice"""
+async def reject_invoice(invoice_id: str, rejection: RejectionRequest, current_user: dict = Depends(require_manager_or_above())):
+    """Reject an invoice (Admin/Manager only)"""
     invoice = await db.invoices.find_one({"id": invoice_id})
     if not invoice:
         raise HTTPException(status_code=404, detail="Rechnung nicht gefunden")
@@ -1699,8 +1715,8 @@ async def reject_invoice(invoice_id: str, rejection: RejectionRequest):
 # ===== ARCHIVE (GoBD) =====
 
 @api_router.post("/invoices/{invoice_id}/archive", response_model=Invoice)
-async def archive_invoice(invoice_id: str):
-    """Archive an approved invoice (GoBD-compliant)"""
+async def archive_invoice(invoice_id: str, current_user: dict = Depends(require_manager_or_above())):
+    """Archive an invoice (Admin/Manager only)"""
     invoice = await db.invoices.find_one({"id": invoice_id})
     if not invoice:
         raise HTTPException(status_code=404, detail="Rechnung nicht gefunden")
@@ -1929,8 +1945,8 @@ async def get_app_settings():
     return await get_settings()
 
 @api_router.put("/settings", response_model=Settings)
-async def update_settings(settings: Settings):
-    """Update application settings"""
+async def update_settings(settings: Settings, current_user: dict = Depends(require_admin())):
+    """Update application settings (Admin only)"""
     settings.id = "global_settings"
     settings.updated_at = datetime.utcnow()
     
@@ -2332,8 +2348,8 @@ async def get_datev_config():
     return config
 
 @api_router.put("/settings/datev")
-async def update_datev_config(config: dict):
-    """Update DATEV configuration"""
+async def update_datev_config(config: dict, current_user: dict = Depends(require_admin())):
+    """Update DATEV configuration (Admin only)"""
     existing = await db.datev_config.find_one({"id": "datev_config"})
     if not existing:
         existing = DatevConfig().model_dump()
@@ -2372,8 +2388,8 @@ async def test_datev_connection():
     return {"success": False, "message": "Echte DATEV-Verbindung noch nicht implementiert. Bitte Simulationsmodus nutzen."}
 
 @api_router.post("/datev/upload/{invoice_id}")
-async def upload_to_datev(invoice_id: str):
-    """Upload an invoice to DATEV Unternehmen Online"""
+async def upload_to_datev(invoice_id: str, current_user: dict = Depends(require_accountant_or_above())):
+    """Upload an invoice to DATEV (Admin/Manager/Accountant)"""
     invoice = await db.invoices.find_one({"id": invoice_id})
     if not invoice:
         raise HTTPException(status_code=404, detail="Rechnung nicht gefunden")
@@ -2466,8 +2482,8 @@ async def get_banking_config():
     return config
 
 @api_router.put("/settings/banking")
-async def update_banking_config(config: dict):
-    """Update banking configuration"""
+async def update_banking_config(config: dict, current_user: dict = Depends(require_admin())):
+    """Update banking configuration (Admin only)"""
     existing = await db.banking_config.find_one({"id": "banking_config"})
     if not existing:
         existing = BankingConfig().model_dump()
@@ -2485,8 +2501,8 @@ async def update_banking_config(config: dict):
     return {"message": "Banking-Konfiguration gespeichert"}
 
 @api_router.post("/payments/initiate/{invoice_id}")
-async def initiate_payment(invoice_id: str, background_tasks: BackgroundTasks):
-    """Initiate a payment for an approved invoice"""
+async def initiate_payment(invoice_id: str, background_tasks: BackgroundTasks, current_user: dict = Depends(require_accountant_or_above())):
+    """Initiate payment (Admin/Manager/Accountant)"""
     invoice = await db.invoices.find_one({"id": invoice_id})
     if not invoice:
         raise HTTPException(status_code=404, detail="Rechnung nicht gefunden")

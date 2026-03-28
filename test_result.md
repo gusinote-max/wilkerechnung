@@ -357,6 +357,21 @@ backend:
         agent: "testing"
         comment: "✅ TESTED: All banking integration endpoints working correctly. GET /api/settings/banking returns default config, PUT /api/settings/banking updates configuration successfully, POST /api/payments/initiate/{invoice_id} initiates payments with SIM-PAY- transaction IDs, GET /api/payments/status/{invoice_id} returns correct status, GET /api/payments lists all payments, duplicate payment initiation properly rejected with 400 error. All operations work in simulation mode."
 
+  - task: "Role-Based Access Control (RBAC)"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "RBAC system with Admin, Manager, Accountant, and Viewer roles. Role-based endpoint protection using require_admin(), require_manager_or_above(), require_accountant_or_above() decorators"
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: Complete RBAC system tested with 17 test scenarios (100% pass rate). Admin login successful, created Accountant (buchhalter@test.de) and Viewer (viewer@test.de) users. Verified Accountant restrictions: CANNOT approve invoices (403 'Keine Berechtigung'), CANNOT delete invoices (403), CANNOT update settings (403), but CAN initiate payments (200). Verified Viewer restrictions: CAN view invoices (200), CANNOT approve/delete/initiate payments (403). Verified Admin permissions: CAN update settings and delete invoices (200). All role-based access controls working correctly."
+
 frontend:
   - task: "Dashboard Screen"
     implemented: true
@@ -482,3 +497,5 @@ agent_communication:
     message: "✅ REVIEW REQUEST TESTING COMPLETE: All 3 specific test scenarios passed (100% success rate). Test 1: Admin login successful, new user 'Max Mustermann' created with manager role, user verified in user list. Test 2: Invoice deletion working correctly - invoice deleted and returns 'Rechnung gelöscht', verification shows 404 as expected. Test 3: New user login successful with correct manager role returned. All authentication flows, user management, and invoice operations working as specified in review request."
   - agent: "testing"
     message: "✅ DATEV & BANKING INTEGRATION TESTING COMPLETE: All 17 integration tests passed (100% success rate). DATEV Integration: Configuration endpoints (GET/PUT /api/settings/datev), connection testing (POST /api/datev/test-connection), invoice upload (POST /api/datev/upload/{id}), status checking (GET /api/datev/status/{id}) - all working in simulation mode with proper SIM-DATEV- document IDs and duplicate upload prevention. Banking Integration: Configuration endpoints (GET/PUT /api/settings/banking), payment initiation (POST /api/payments/initiate/{id}), status checking (GET /api/payments/status/{id}), payment listing (GET /api/payments) - all working in simulation mode with proper SIM-PAY- transaction IDs and duplicate payment prevention. Fixed router registration issue where DATEV/Banking endpoints were defined after app.include_router() call. All integration APIs fully functional and ready for production use."
+  - agent: "testing"
+    message: "✅ RBAC TESTING COMPLETE: All 17 role-based access control tests passed (100% success rate). Successfully tested complete RBAC implementation: 1) Setup: Admin login, created Accountant user (buchhalter@test.de) and Viewer user (viewer@test.de), all logins successful. 2) Accountant restrictions: CANNOT approve invoices (403 'Keine Berechtigung'), CANNOT delete invoices (403), CANNOT update settings (403). 3) Accountant permissions: CAN initiate payments (200 with SIM-PAY- transaction ID). 4) Viewer restrictions: CAN view invoices (200), CANNOT approve (403), CANNOT delete (403), CANNOT initiate payments (403). 5) Admin permissions: CAN update settings (200), CAN delete invoices (200). All role-based access controls working correctly as designed. RBAC system fully functional and secure."

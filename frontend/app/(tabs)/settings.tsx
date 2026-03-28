@@ -49,6 +49,12 @@ export default function SettingsScreen() {
   const isDesktop = width >= 768;
   const { user, logout, isAuthenticated } = useAuthStore();
 
+  // Role-based permissions
+  const userRole = user?.role || 'viewer';
+  const isAdmin = userRole === 'admin';
+  const isManagerOrAbove = ['admin', 'manager'].includes(userRole);
+  const isAccountantOrAbove = ['admin', 'manager', 'accountant'].includes(userRole);
+
   const [settings, setSettings] = useState<Settings | null>(null);
   const [webhooks, setWebhooks] = useState<WebhookConfig[]>([]);
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
@@ -523,7 +529,7 @@ export default function SettingsScreen() {
           )}
 
           {/* ===== USER MANAGEMENT ===== */}
-          {isAuthenticated && user?.role === 'admin' && (
+          {isAdmin && (
             <View style={[styles.section, isDesktop && styles.desktopSection]}>
               <View style={styles.sectionHeader}>
                 <Ionicons name="people" size={20} color="#6c5ce7" />
@@ -576,7 +582,8 @@ export default function SettingsScreen() {
             </View>
           )}
 
-          {/* AI Settings */}
+          {/* AI Settings - Admin only */}
+          {isAdmin && (
           <View style={[styles.section, isDesktop && styles.desktopSection]}>
             <View style={styles.sectionHeader}>
               <Ionicons name="flash" size={20} color="#6c5ce7" />
@@ -1148,6 +1155,22 @@ export default function SettingsScreen() {
               </View>
             )}
           </View>
+
+          {/* End Admin-only sections */}
+          )}
+
+          {/* Nicht-Admin Hinweis */}
+          {!isAdmin && isAuthenticated && (
+            <View style={[styles.section, isDesktop && styles.desktopSection, { alignItems: 'center', paddingVertical: 30 }]}>
+              <Ionicons name="lock-closed" size={40} color="#636e72" />
+              <Text style={{ color: '#a0a0a0', fontSize: 15, marginTop: 12, textAlign: 'center' }}>
+                Erweiterte Einstellungen sind nur für Administratoren verfügbar.
+              </Text>
+              <Text style={{ color: '#636e72', fontSize: 13, marginTop: 6, textAlign: 'center' }}>
+                Ihre Rolle: {userRole === 'manager' ? 'Manager' : userRole === 'accountant' ? 'Buchhalter' : 'Nur Lesen'}
+              </Text>
+            </View>
+          )}
 
           {/* App Info */}
           <View style={styles.appInfo}>
