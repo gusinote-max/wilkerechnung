@@ -46,6 +46,12 @@ export default function InvoiceDetailScreen() {
   const [showConfirm, setShowConfirm] = useState<{action: string; title: string; message: string} | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
+  // DATEV & Payment states
+  const [datevStatus, setDatevStatus] = useState<any>(null);
+  const [paymentStatus, setPaymentStatus] = useState<any>(null);
+  const [datevUploading, setDatevUploading] = useState(false);
+  const [paymentInitiating, setPaymentInitiating] = useState(false);
+
   useEffect(() => {
     if (id) {
       loadInvoice();
@@ -71,6 +77,18 @@ export default function InvoiceDetailScreen() {
       }
       if (invoiceData.data.booking_text) {
         setBookingText(invoiceData.data.booking_text);
+      }
+
+      // Load DATEV and Payment status
+      try {
+        const [datevData, paymentData] = await Promise.all([
+          apiService.getDatevStatus(id!),
+          apiService.getPaymentStatus(id!),
+        ]);
+        setDatevStatus(datevData);
+        setPaymentStatus(paymentData);
+      } catch (e) {
+        console.log('Could not load DATEV/Payment status');
       }
     } catch (error) {
       console.error('Error loading invoice:', error);
@@ -187,6 +205,34 @@ export default function InvoiceDetailScreen() {
       setToast({type: 'error', message: msg});
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const handleDatevUpload = async () => {
+    setDatevUploading(true);
+    try {
+      const result = await apiService.uploadToDatev(id!);
+      setDatevStatus({ status: result.mode === 'simulation' ? 'simulated' : 'success', datev_document_id: result.document_id });
+      setToast({ type: 'success', message: result.message });
+    } catch (error: any) {
+      const msg = error.response?.data?.detail || 'DATEV-Upload fehlgeschlagen';
+      setToast({ type: 'error', message: msg });
+    } finally {
+      setDatevUploading(false);
+    }
+  };
+
+  const handlePaymentInitiate = async () => {
+    setPaymentInitiating(true);
+    try {
+      const result = await apiService.initiatePayment(id!);
+      setPaymentStatus({ status: result.mode === 'simulation' ? 'simulated' : 'completed', provider_transaction_id: result.transaction_id, amount: result.amount });
+      setToast({ type: 'success', message: result.message });
+    } catch (error: any) {
+      const msg = error.response?.data?.detail || 'Zahlung konnte nicht initiiert werden';
+      setToast({ type: 'error', message: msg });
+    } finally {
+      setPaymentInitiating(false);
     }
   };
 
@@ -628,6 +674,85 @@ export default function InvoiceDetailScreen() {
               <Ionicons name="trash" size={20} color="#fff" />
               <Text style={styles.actionButtonText}>Löschen</Text>
             </TouchableOpacity>
+          </View>
+        )}
+
+        {/* DATEV & Payment Integration */}
+        {invoice.status !== 'pending' && (
+          <View style={[styles.exportSection, isDesktop && styles.desktopExport, { marginTop: 0 }]}>
+            <Text style={styles.exportTitle}>Integrationen</Text>
+            <View style={{ gap: 10 }}>
+              {/* DATEV Status & Button */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#0f0f1a', borderRadius: 10, padding: 14, gap: 12 }}>
+                <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: datevStatus?.status === 'simulated' || datevStatus?.status === 'success' ? '#00b89420' : '#636e7220', justifyContent: 'center', alignItems: 'center' }}>
+                  <Ionicons
+                    name={datevStatus?.status === 'simulated' || datevStatus?.status === 'success' ? 'checkmark-circle' : 'cloud-upload'}
+                    size={22}
+                    color={datevStatus?.status === 'simulated' || datevStatus?.status === 'success' ? '#00b894' : '#636e72'}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: '#fff', fontSize: 14, fontWeight: '600' }}>DATEV Upload</Text>
+                  <Text style={{ color: '#a0a0a0', fontSize: 12, marginTop: 2 }}>
+                    {datevStatus?.status === 'simulated' ? `Simuliert — ${datevStatus.datev_document_id}` :
+                     datevStatus?.status === 'success' ? `Übermittelt — ${datevStatus.datev_document_id}` :
+                     'Noch nicht an DATEV übermittelt'}
+                  </Text>
+                </View>
+                {(!datevStatus || datevStatus.status === 'not_uploaded') && (
+                  <TouchableOpacity
+                    style={{ backgroundColor: '#00b894', borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 6 }}
+                    onPress={handleDatevUpload}
+                    disabled={datevUploading}
+                  >
+                    {datevUploading ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="cloud-upload" size={16} color="#fff" />}
+                    <Text style={{ color: '#fff', fontSize: 13, fontWeight: '600' }}>An DATEV senden</Text>
+                  </TouchableOpacity>
+                )}
+                {(datevStatus?.status === 'simulated' || datevStatus?.status === 'success') && (
+                  <View style={{ backgroundColor: '#00b89420', borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4 }}>
+                    <Text style={{ color: '#00b894', fontSize: 12, fontWeight: 'bold' }}>Erledigt</Text>
+                  </View>
+                )}
+              </View>
+
+              {/* Payment Status & Button */}
+              {(invoice.status === 'approved' || invoice.status === 'archived') && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#0f0f1a', borderRadius: 10, padding: 14, gap: 12 }}>
+                  <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: paymentStatus?.status === 'simulated' || paymentStatus?.status === 'completed' ? '#0984e320' : '#636e7220', justifyContent: 'center', alignItems: 'center' }}>
+                    <Ionicons
+                      name={paymentStatus?.status === 'simulated' || paymentStatus?.status === 'completed' ? 'checkmark-circle' : 'card'}
+                      size={22}
+                      color={paymentStatus?.status === 'simulated' || paymentStatus?.status === 'completed' ? '#0984e3' : '#636e72'}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: '#fff', fontSize: 14, fontWeight: '600' }}>Überweisung</Text>
+                    <Text style={{ color: '#a0a0a0', fontSize: 12, marginTop: 2 }}>
+                      {paymentStatus?.status === 'simulated' ? `Simuliert — ${paymentStatus.provider_transaction_id}` :
+                       paymentStatus?.status === 'completed' ? `Bezahlt — ${paymentStatus.provider_transaction_id}` :
+                       paymentStatus?.status === 'processing' ? 'In Bearbeitung...' :
+                       'Zahlung noch nicht ausgeführt'}
+                    </Text>
+                  </View>
+                  {(!paymentStatus || paymentStatus.status === 'not_paid') && (
+                    <TouchableOpacity
+                      style={{ backgroundColor: '#0984e3', borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 6 }}
+                      onPress={handlePaymentInitiate}
+                      disabled={paymentInitiating}
+                    >
+                      {paymentInitiating ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="card" size={16} color="#fff" />}
+                      <Text style={{ color: '#fff', fontSize: 13, fontWeight: '600' }}>Überweisen</Text>
+                    </TouchableOpacity>
+                  )}
+                  {(paymentStatus?.status === 'simulated' || paymentStatus?.status === 'completed') && (
+                    <View style={{ backgroundColor: '#0984e320', borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4 }}>
+                      <Text style={{ color: '#0984e3', fontSize: 12, fontWeight: 'bold' }}>Bezahlt</Text>
+                    </View>
+                  )}
+                </View>
+              )}
+            </View>
           </View>
         )}
 

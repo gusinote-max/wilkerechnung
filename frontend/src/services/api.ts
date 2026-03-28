@@ -407,6 +407,58 @@ export const apiService = {
     const response = await api.get('/ai-models');
     return response.data;
   },
+
+  // DATEV Integration
+  async getDatevConfig(): Promise<any> {
+    const response = await api.get('/settings/datev');
+    return response.data;
+  },
+
+  async updateDatevConfig(config: any): Promise<any> {
+    const response = await api.put('/settings/datev', config);
+    return response.data;
+  },
+
+  async testDatevConnection(): Promise<any> {
+    const response = await api.post('/datev/test-connection');
+    return response.data;
+  },
+
+  async uploadToDatev(invoiceId: string): Promise<any> {
+    const response = await api.post(`/datev/upload/${invoiceId}`);
+    return response.data;
+  },
+
+  async getDatevStatus(invoiceId: string): Promise<any> {
+    const response = await api.get(`/datev/status/${invoiceId}`);
+    return response.data;
+  },
+
+  // Banking / Payments
+  async getBankingConfig(): Promise<any> {
+    const response = await api.get('/settings/banking');
+    return response.data;
+  },
+
+  async updateBankingConfig(config: any): Promise<any> {
+    const response = await api.put('/settings/banking', config);
+    return response.data;
+  },
+
+  async initiatePayment(invoiceId: string): Promise<any> {
+    const response = await api.post(`/payments/initiate/${invoiceId}`);
+    return response.data;
+  },
+
+  async getPaymentStatus(invoiceId: string): Promise<any> {
+    const response = await api.get(`/payments/status/${invoiceId}`);
+    return response.data;
+  },
+
+  async listPayments(): Promise<any[]> {
+    const response = await api.get('/payments');
+    return response.data;
+  },
 };
 
 export interface AIModel {

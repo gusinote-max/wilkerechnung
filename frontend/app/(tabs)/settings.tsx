@@ -97,6 +97,22 @@ export default function SettingsScreen() {
   const [workflowMinAmount, setWorkflowMinAmount] = useState('');
   const [workflowMaxAmount, setWorkflowMaxAmount] = useState('');
 
+  // DATEV Integration states
+  const [datevConfig, setDatevConfig] = useState<any>({
+    enabled: false, simulation_mode: true, client_id: '', berater_nr: '', mandant_nr: '',
+    auto_upload_on_approval: false, auto_upload_on_archive: true,
+  });
+  const [datevTesting, setDatevTesting] = useState(false);
+  const [datevSaving, setDatevSaving] = useState(false);
+
+  // Banking Integration states
+  const [bankingConfig, setBankingConfig] = useState<any>({
+    enabled: false, simulation_mode: true, provider: 'simulation',
+    company_iban: '', company_bic: '', company_name: '',
+    auto_payment_on_approval: false, require_4_eyes: true, max_auto_amount: 10000,
+  });
+  const [bankingSaving, setBankingSaving] = useState(false);
+
   useEffect(() => {
     loadSettings();
   }, []);
@@ -141,6 +157,22 @@ export default function SettingsScreen() {
         setAiModels(modelsData);
       } catch (e) {
         console.log('Could not load AI models');
+      }
+
+      // Load DATEV config
+      try {
+        const datevData = await apiService.getDatevConfig();
+        setDatevConfig(datevData);
+      } catch (e) {
+        console.log('Could not load DATEV config');
+      }
+
+      // Load Banking config
+      try {
+        const bankingData = await apiService.getBankingConfig();
+        setBankingConfig(bankingData);
+      } catch (e) {
+        console.log('Could not load Banking config');
       }
     } catch (error) {
       console.error('Error loading settings:', error);
@@ -376,6 +408,44 @@ export default function SettingsScreen() {
       setToast({ type: 'error', message: msg });
     } finally {
       setCreatingUser(false);
+    }
+  };
+
+  // DATEV handlers
+  const saveDatevConfig = async () => {
+    setDatevSaving(true);
+    try {
+      await apiService.updateDatevConfig(datevConfig);
+      setToast({ type: 'success', message: 'DATEV-Konfiguration gespeichert' });
+    } catch (error: any) {
+      setToast({ type: 'error', message: 'DATEV-Konfiguration konnte nicht gespeichert werden' });
+    } finally {
+      setDatevSaving(false);
+    }
+  };
+
+  const testDatevConnection = async () => {
+    setDatevTesting(true);
+    try {
+      const result = await apiService.testDatevConnection();
+      setToast({ type: result.success ? 'success' : 'error', message: result.message });
+    } catch (error: any) {
+      setToast({ type: 'error', message: 'Verbindungstest fehlgeschlagen' });
+    } finally {
+      setDatevTesting(false);
+    }
+  };
+
+  // Banking handlers
+  const saveBankingConfig = async () => {
+    setBankingSaving(true);
+    try {
+      await apiService.updateBankingConfig(bankingConfig);
+      setToast({ type: 'success', message: 'Banking-Konfiguration gespeichert' });
+    } catch (error: any) {
+      setToast({ type: 'error', message: 'Banking-Konfiguration konnte nicht gespeichert werden' });
+    } finally {
+      setBankingSaving(false);
     }
   };
 
@@ -627,6 +697,226 @@ export default function SettingsScreen() {
               </>
             )}
           </TouchableOpacity>
+
+          {/* DATEV Unternehmen Online */}
+          <View style={[styles.section, isDesktop && styles.desktopSection]}>
+            <View style={styles.sectionHeader}>
+              <Ionicons name="cloud-upload" size={20} color="#00b894" />
+              <Text style={styles.sectionTitle}>DATEV Unternehmen Online</Text>
+              {datevConfig.simulation_mode && datevConfig.enabled && (
+                <View style={{ backgroundColor: '#fdcb6e30', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2, marginLeft: 8 }}>
+                  <Text style={{ color: '#fdcb6e', fontSize: 11, fontWeight: 'bold' }}>SIMULATION</Text>
+                </View>
+              )}
+            </View>
+
+            <View style={styles.switchRow}>
+              <Text style={styles.switchLabel}>DATEV-Integration aktivieren</Text>
+              <Switch
+                value={datevConfig.enabled}
+                onValueChange={(v) => setDatevConfig({...datevConfig, enabled: v})}
+                trackColor={{ false: '#2d2d44', true: '#00b89430' }}
+                thumbColor={datevConfig.enabled ? '#00b894' : '#636e72'}
+              />
+            </View>
+
+            {datevConfig.enabled && (
+              <>
+                <View style={styles.switchRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.switchLabel}>Simulationsmodus</Text>
+                    <Text style={{ color: '#a0a0a0', fontSize: 11, marginTop: 2 }}>Testet den Flow ohne echte DATEV-Verbindung</Text>
+                  </View>
+                  <Switch
+                    value={datevConfig.simulation_mode}
+                    onValueChange={(v) => setDatevConfig({...datevConfig, simulation_mode: v})}
+                    trackColor={{ false: '#2d2d44', true: '#fdcb6e30' }}
+                    thumbColor={datevConfig.simulation_mode ? '#fdcb6e' : '#636e72'}
+                  />
+                </View>
+
+                <View style={[styles.inputRow, isDesktop && styles.desktopInputRow]}>
+                  <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
+                    <Text style={styles.label}>Beraternummer</Text>
+                    <TextInput style={styles.input} value={datevConfig.berater_nr} onChangeText={(v) => setDatevConfig({...datevConfig, berater_nr: v})} placeholder="12345" placeholderTextColor="#636e72" />
+                  </View>
+                  <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
+                    <Text style={styles.label}>Mandantennummer</Text>
+                    <TextInput style={styles.input} value={datevConfig.mandant_nr} onChangeText={(v) => setDatevConfig({...datevConfig, mandant_nr: v})} placeholder="67890" placeholderTextColor="#636e72" />
+                  </View>
+                </View>
+
+                {!datevConfig.simulation_mode && (
+                  <View style={[styles.inputRow, isDesktop && styles.desktopInputRow]}>
+                    <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
+                      <Text style={styles.label}>Client-ID (DATEVconnect)</Text>
+                      <TextInput style={styles.input} value={datevConfig.client_id} onChangeText={(v) => setDatevConfig({...datevConfig, client_id: v})} placeholder="Client-ID" placeholderTextColor="#636e72" autoCapitalize="none" />
+                    </View>
+                    <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
+                      <Text style={styles.label}>Client-Secret</Text>
+                      <TextInput style={styles.input} value={datevConfig.client_secret || ''} onChangeText={(v) => setDatevConfig({...datevConfig, client_secret: v})} placeholder="Client-Secret" placeholderTextColor="#636e72" secureTextEntry autoCapitalize="none" />
+                    </View>
+                  </View>
+                )}
+
+                <View style={styles.switchRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.switchLabel}>Auto-Upload nach Genehmigung</Text>
+                    <Text style={{ color: '#a0a0a0', fontSize: 11, marginTop: 2 }}>Rechnungen automatisch nach Genehmigung an DATEV senden</Text>
+                  </View>
+                  <Switch
+                    value={datevConfig.auto_upload_on_approval}
+                    onValueChange={(v) => setDatevConfig({...datevConfig, auto_upload_on_approval: v})}
+                    trackColor={{ false: '#2d2d44', true: '#00b89430' }}
+                    thumbColor={datevConfig.auto_upload_on_approval ? '#00b894' : '#636e72'}
+                  />
+                </View>
+
+                <View style={styles.switchRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.switchLabel}>Auto-Upload nach Archivierung</Text>
+                    <Text style={{ color: '#a0a0a0', fontSize: 11, marginTop: 2 }}>Rechnungen automatisch nach GoBD-Archivierung an DATEV senden</Text>
+                  </View>
+                  <Switch
+                    value={datevConfig.auto_upload_on_archive}
+                    onValueChange={(v) => setDatevConfig({...datevConfig, auto_upload_on_archive: v})}
+                    trackColor={{ false: '#2d2d44', true: '#00b89430' }}
+                    thumbColor={datevConfig.auto_upload_on_archive ? '#00b894' : '#636e72'}
+                  />
+                </View>
+
+                <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
+                  <TouchableOpacity
+                    style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#00b894', borderRadius: 8, padding: 12, gap: 8 }}
+                    onPress={saveDatevConfig}
+                    disabled={datevSaving}
+                  >
+                    {datevSaving ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="save" size={18} color="#fff" />}
+                    <Text style={{ color: '#fff', fontSize: 14, fontWeight: '600' }}>Speichern</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#0f0f1a', borderWidth: 1, borderColor: '#00b894', borderRadius: 8, padding: 12, gap: 8 }}
+                    onPress={testDatevConnection}
+                    disabled={datevTesting}
+                  >
+                    {datevTesting ? <ActivityIndicator size="small" color="#00b894" /> : <Ionicons name="flash" size={18} color="#00b894" />}
+                    <Text style={{ color: '#00b894', fontSize: 14, fontWeight: '600' }}>Verbindung testen</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+          </View>
+
+          {/* Banking / Zahlungen */}
+          <View style={[styles.section, isDesktop && styles.desktopSection]}>
+            <View style={styles.sectionHeader}>
+              <Ionicons name="card" size={20} color="#0984e3" />
+              <Text style={styles.sectionTitle}>Bankverbindung & Zahlungen</Text>
+              {bankingConfig.simulation_mode && bankingConfig.enabled && (
+                <View style={{ backgroundColor: '#fdcb6e30', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2, marginLeft: 8 }}>
+                  <Text style={{ color: '#fdcb6e', fontSize: 11, fontWeight: 'bold' }}>SIMULATION</Text>
+                </View>
+              )}
+            </View>
+
+            <View style={styles.switchRow}>
+              <Text style={styles.switchLabel}>Zahlungsintegration aktivieren</Text>
+              <Switch
+                value={bankingConfig.enabled}
+                onValueChange={(v) => setBankingConfig({...bankingConfig, enabled: v})}
+                trackColor={{ false: '#2d2d44', true: '#0984e330' }}
+                thumbColor={bankingConfig.enabled ? '#0984e3' : '#636e72'}
+              />
+            </View>
+
+            {bankingConfig.enabled && (
+              <>
+                <View style={styles.switchRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.switchLabel}>Simulationsmodus</Text>
+                    <Text style={{ color: '#a0a0a0', fontSize: 11, marginTop: 2 }}>SEPA-Zahlungen werden simuliert, nicht ausgeführt</Text>
+                  </View>
+                  <Switch
+                    value={bankingConfig.simulation_mode}
+                    onValueChange={(v) => setBankingConfig({...bankingConfig, simulation_mode: v})}
+                    trackColor={{ false: '#2d2d44', true: '#fdcb6e30' }}
+                    thumbColor={bankingConfig.simulation_mode ? '#fdcb6e' : '#636e72'}
+                  />
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Banking-Anbieter</Text>
+                  <View style={styles.radioGroup}>
+                    {[
+                      { key: 'simulation', label: 'Simulation' },
+                      { key: 'finapi', label: 'FinAPI' },
+                      { key: 'tink', label: 'Tink' },
+                      { key: 'ebics', label: 'EBICS' },
+                    ].map((p) => (
+                      <TouchableOpacity
+                        key={p.key}
+                        style={[styles.radioButton, bankingConfig.provider === p.key && styles.radioButtonActive]}
+                        onPress={() => setBankingConfig({...bankingConfig, provider: p.key})}
+                      >
+                        <Text style={[styles.radioText, bankingConfig.provider === p.key && styles.radioTextActive]}>{p.label}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                <View style={[styles.inputRow, isDesktop && styles.desktopInputRow]}>
+                  <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
+                    <Text style={styles.label}>Firmen-IBAN</Text>
+                    <TextInput style={styles.input} value={bankingConfig.company_iban} onChangeText={(v) => setBankingConfig({...bankingConfig, company_iban: v})} placeholder="DE89..." placeholderTextColor="#636e72" autoCapitalize="characters" />
+                  </View>
+                  <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
+                    <Text style={styles.label}>Firmen-BIC</Text>
+                    <TextInput style={styles.input} value={bankingConfig.company_bic} onChangeText={(v) => setBankingConfig({...bankingConfig, company_bic: v})} placeholder="COBADEFFXXX" placeholderTextColor="#636e72" autoCapitalize="characters" />
+                  </View>
+                </View>
+
+                <View style={styles.switchRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.switchLabel}>Auto-Zahlung nach Genehmigung</Text>
+                    <Text style={{ color: '#a0a0a0', fontSize: 11, marginTop: 2 }}>Überweisungen automatisch nach Genehmigung auslösen</Text>
+                  </View>
+                  <Switch
+                    value={bankingConfig.auto_payment_on_approval}
+                    onValueChange={(v) => setBankingConfig({...bankingConfig, auto_payment_on_approval: v})}
+                    trackColor={{ false: '#2d2d44', true: '#0984e330' }}
+                    thumbColor={bankingConfig.auto_payment_on_approval ? '#0984e3' : '#636e72'}
+                  />
+                </View>
+
+                <View style={styles.switchRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.switchLabel}>4-Augen-Prinzip</Text>
+                    <Text style={{ color: '#a0a0a0', fontSize: 11, marginTop: 2 }}>Zahlungen müssen von zweiter Person bestätigt werden</Text>
+                  </View>
+                  <Switch
+                    value={bankingConfig.require_4_eyes}
+                    onValueChange={(v) => setBankingConfig({...bankingConfig, require_4_eyes: v})}
+                    trackColor={{ false: '#2d2d44', true: '#0984e330' }}
+                    thumbColor={bankingConfig.require_4_eyes ? '#0984e3' : '#636e72'}
+                  />
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Max. Auto-Zahlungsbetrag (EUR)</Text>
+                  <TextInput style={styles.input} value={String(bankingConfig.max_auto_amount || '')} onChangeText={(v) => setBankingConfig({...bankingConfig, max_auto_amount: parseFloat(v) || 0})} placeholder="10000" placeholderTextColor="#636e72" keyboardType="numeric" />
+                </View>
+
+                <TouchableOpacity
+                  style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#0984e3', borderRadius: 8, padding: 12, gap: 8, marginTop: 12 }}
+                  onPress={saveBankingConfig}
+                  disabled={bankingSaving}
+                >
+                  {bankingSaving ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="save" size={18} color="#fff" />}
+                  <Text style={{ color: '#fff', fontSize: 14, fontWeight: '600' }}>Banking speichern</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
 
           {/* Email Settings */}
           <View style={[styles.section, isDesktop && styles.desktopSection]}>

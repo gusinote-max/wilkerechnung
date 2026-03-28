@@ -244,6 +244,92 @@ class Settings(BaseModel):
     default_kontenrahmen: str = "SKR03"  # SKR03 or SKR04
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
+# DATEV Unternehmen Online Configuration
+class DatevConfig(BaseModel):
+    id: str = "datev_config"
+    enabled: bool = False
+    simulation_mode: bool = True
+    client_id: str = ""
+    client_secret: str = ""
+    berater_nr: str = ""
+    mandant_nr: str = ""
+    oauth_token: str = ""
+    oauth_refresh_token: str = ""
+    oauth_expires_at: Optional[datetime] = None
+    auto_upload_on_approval: bool = False
+    auto_upload_on_archive: bool = True
+    last_sync: Optional[datetime] = None
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class DatevUploadStatus(str, Enum):
+    PENDING = "pending"
+    UPLOADING = "uploading"
+    SUCCESS = "success"
+    FAILED = "failed"
+    SIMULATED = "simulated"
+
+class DatevUploadLog(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    invoice_id: str
+    invoice_number: str = ""
+    status: DatevUploadStatus = DatevUploadStatus.PENDING
+    datev_document_id: str = ""
+    error_message: str = ""
+    xml_content: str = ""
+    uploaded_at: datetime = Field(default_factory=datetime.utcnow)
+    completed_at: Optional[datetime] = None
+
+# Banking / Payment Configuration
+class BankingProvider(str, Enum):
+    SIMULATION = "simulation"
+    FINAPI = "finapi"
+    TINK = "tink"
+    EBICS = "ebics"
+
+class BankingConfig(BaseModel):
+    id: str = "banking_config"
+    enabled: bool = False
+    simulation_mode: bool = True
+    provider: BankingProvider = BankingProvider.SIMULATION
+    api_key: str = ""
+    api_secret: str = ""
+    company_iban: str = ""
+    company_bic: str = ""
+    company_name: str = ""
+    auto_payment_on_approval: bool = False
+    require_4_eyes: bool = True
+    max_auto_amount: float = 10000.0
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class PaymentStatus(str, Enum):
+    PENDING = "pending"
+    INITIATED = "initiated"
+    AWAITING_APPROVAL = "awaiting_approval"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+    SIMULATED = "simulated"
+
+class PaymentLog(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    invoice_id: str
+    invoice_number: str = ""
+    amount: float = 0.0
+    currency: str = "EUR"
+    creditor_name: str = ""
+    creditor_iban: str = ""
+    reference: str = ""
+    status: PaymentStatus = PaymentStatus.PENDING
+    provider: BankingProvider = BankingProvider.SIMULATION
+    provider_transaction_id: str = ""
+    sepa_xml: str = ""
+    error_message: str = ""
+    initiated_at: datetime = Field(default_factory=datetime.utcnow)
+    initiated_by: str = ""
+    approved_by: str = ""
+    completed_at: Optional[datetime] = None
+
 class WebhookConfig(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     name: str
@@ -2186,9 +2272,6 @@ async def send_reminder_email_route(reminder_id: str, background_tasks: Backgrou
     
     return {"message": f"Erinnerung an {len(users)} Benutzer gesendet"}
 
-# Include the router in the main app
-app.include_router(api_router)
-
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
@@ -2231,6 +2314,277 @@ async def startup_event():
         )
         await db.users.insert_one(admin.model_dump())
         logger.info("Default admin user created: admin@candis-kopie.de / admin123")
+
+# ===================== DATEV UNTERNEHMEN ONLINE INTEGRATION =====================
+
+@api_router.get("/settings/datev")
+async def get_datev_config():
+    """Get DATEV configuration"""
+    config = await db.datev_config.find_one({"id": "datev_config"})
+    if not config:
+        config = DatevConfig().model_dump()
+    # Don't expose sensitive fields
+    config.pop('_id', None)
+    config.pop('oauth_token', None)
+    config.pop('oauth_refresh_token', None)
+    config['client_secret_set'] = bool(config.get('client_secret', ''))
+    config['client_secret'] = '••••••••' if config.get('client_secret') else ''
+    return config
+
+@api_router.put("/settings/datev")
+async def update_datev_config(config: dict):
+    """Update DATEV configuration"""
+    existing = await db.datev_config.find_one({"id": "datev_config"})
+    if not existing:
+        existing = DatevConfig().model_dump()
+    
+    for key, value in config.items():
+        if key in ['client_secret'] and value == '••••••••':
+            continue  # Don't overwrite masked secrets
+        if key not in ['_id', 'id']:
+            existing[key] = value
+    
+    existing['updated_at'] = datetime.utcnow()
+    await db.datev_config.update_one(
+        {"id": "datev_config"}, {"$set": existing}, upsert=True
+    )
+    return {"message": "DATEV-Konfiguration gespeichert"}
+
+@api_router.post("/datev/test-connection")
+async def test_datev_connection():
+    """Test DATEV connection (simulation mode always succeeds)"""
+    config = await db.datev_config.find_one({"id": "datev_config"})
+    if not config:
+        return {"success": False, "message": "Keine DATEV-Konfiguration vorhanden"}
+    
+    if config.get('simulation_mode', True):
+        return {
+            "success": True,
+            "mode": "simulation",
+            "message": "Simulationsmodus: Verbindung erfolgreich simuliert. Für echte Verbindung deaktivieren Sie den Simulationsmodus und hinterlegen Sie gültige DATEV-Credentials."
+        }
+    
+    # Real connection test would go here
+    if not config.get('client_id') or not config.get('client_secret'):
+        return {"success": False, "message": "Client-ID und Client-Secret erforderlich"}
+    
+    # TODO: Implement real DATEVconnect Online OAuth flow
+    return {"success": False, "message": "Echte DATEV-Verbindung noch nicht implementiert. Bitte Simulationsmodus nutzen."}
+
+@api_router.post("/datev/upload/{invoice_id}")
+async def upload_to_datev(invoice_id: str):
+    """Upload an invoice to DATEV Unternehmen Online"""
+    invoice = await db.invoices.find_one({"id": invoice_id})
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Rechnung nicht gefunden")
+    
+    config = await db.datev_config.find_one({"id": "datev_config"})
+    if not config:
+        config = DatevConfig().model_dump()
+    
+    if not config.get('enabled', False):
+        raise HTTPException(status_code=400, detail="DATEV-Integration ist nicht aktiviert")
+    
+    # Check if already uploaded
+    existing_upload = await db.datev_uploads.find_one({
+        "invoice_id": invoice_id, "status": {"$in": ["success", "simulated"]}
+    })
+    if existing_upload:
+        raise HTTPException(status_code=400, detail="Rechnung wurde bereits an DATEV übermittelt")
+    
+    # Generate DATEV XML for this invoice
+    xml_content = generate_datev_xml([invoice])
+    
+    inv_number = invoice.get('data', {}).get('invoice_number', invoice.get('number', ''))
+    
+    if config.get('simulation_mode', True):
+        # Simulation mode - log and mark as simulated
+        upload_log = DatevUploadLog(
+            invoice_id=invoice_id,
+            invoice_number=inv_number,
+            status=DatevUploadStatus.SIMULATED,
+            datev_document_id=f"SIM-DATEV-{uuid.uuid4().hex[:12].upper()}",
+            xml_content=xml_content,
+            completed_at=datetime.utcnow()
+        )
+        await db.datev_uploads.insert_one(upload_log.model_dump())
+        
+        # Update invoice with DATEV status
+        await db.invoices.update_one(
+            {"id": invoice_id},
+            {"$set": {"datev_status": "simulated", "datev_upload_id": upload_log.id, "datev_uploaded_at": datetime.utcnow()}}
+        )
+        
+        await log_audit(invoice_id, "datev_uploaded", "system", {"mode": "simulation", "document_id": upload_log.datev_document_id})
+        
+        return {
+            "success": True,
+            "mode": "simulation",
+            "document_id": upload_log.datev_document_id,
+            "message": f"Rechnung {inv_number} erfolgreich an DATEV übermittelt (Simulation)"
+        }
+    else:
+        # Real DATEV upload would go here
+        # TODO: Implement real DATEVconnect Online API call
+        raise HTTPException(status_code=501, detail="Echte DATEV-Übertragung noch nicht implementiert")
+
+@api_router.get("/datev/status/{invoice_id}")
+async def get_datev_status(invoice_id: str):
+    """Get DATEV upload status for an invoice"""
+    upload = await db.datev_uploads.find_one(
+        {"invoice_id": invoice_id},
+        sort=[("uploaded_at", -1)]
+    )
+    if not upload:
+        return {"status": "not_uploaded", "message": "Noch nicht an DATEV übermittelt"}
+    upload.pop('_id', None)
+    upload.pop('xml_content', None)
+    return upload
+
+@api_router.get("/datev/uploads")
+async def list_datev_uploads(limit: int = 50):
+    """List recent DATEV uploads"""
+    uploads = await db.datev_uploads.find(
+        {}, {"xml_content": 0}
+    ).sort("uploaded_at", -1).limit(limit).to_list(limit)
+    for u in uploads:
+        u.pop('_id', None)
+    return uploads
+
+# ===================== BANKING / PAYMENT INTEGRATION =====================
+
+@api_router.get("/settings/banking")
+async def get_banking_config():
+    """Get banking configuration"""
+    config = await db.banking_config.find_one({"id": "banking_config"})
+    if not config:
+        config = BankingConfig().model_dump()
+    config.pop('_id', None)
+    config['api_secret_set'] = bool(config.get('api_secret', ''))
+    config['api_secret'] = '••••••••' if config.get('api_secret') else ''
+    config['api_key'] = '••••••••' if config.get('api_key') else ''
+    return config
+
+@api_router.put("/settings/banking")
+async def update_banking_config(config: dict):
+    """Update banking configuration"""
+    existing = await db.banking_config.find_one({"id": "banking_config"})
+    if not existing:
+        existing = BankingConfig().model_dump()
+    
+    for key, value in config.items():
+        if key in ['api_key', 'api_secret'] and value == '••••••••':
+            continue
+        if key not in ['_id', 'id']:
+            existing[key] = value
+    
+    existing['updated_at'] = datetime.utcnow()
+    await db.banking_config.update_one(
+        {"id": "banking_config"}, {"$set": existing}, upsert=True
+    )
+    return {"message": "Banking-Konfiguration gespeichert"}
+
+@api_router.post("/payments/initiate/{invoice_id}")
+async def initiate_payment(invoice_id: str, background_tasks: BackgroundTasks):
+    """Initiate a payment for an approved invoice"""
+    invoice = await db.invoices.find_one({"id": invoice_id})
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Rechnung nicht gefunden")
+    
+    if invoice['status'] not in ['approved', 'archived']:
+        raise HTTPException(status_code=400, detail="Nur genehmigte oder archivierte Rechnungen können bezahlt werden")
+    
+    banking_config = await db.banking_config.find_one({"id": "banking_config"})
+    if not banking_config:
+        banking_config = BankingConfig().model_dump()
+    
+    if not banking_config.get('enabled', False):
+        raise HTTPException(status_code=400, detail="Banking-Integration ist nicht aktiviert")
+    
+    # Check if already paid
+    existing_payment = await db.payments.find_one({
+        "invoice_id": invoice_id, "status": {"$in": ["completed", "simulated", "processing"]}
+    })
+    if existing_payment:
+        raise HTTPException(status_code=400, detail="Zahlung wurde bereits initiiert")
+    
+    data = invoice.get('data', {})
+    amount = data.get('gross_amount', 0) or invoice.get('amount', 0)
+    inv_number = data.get('invoice_number', invoice.get('number', ''))
+    creditor_name = data.get('vendor', {}).get('name', '') or invoice.get('vendor', 'Unbekannt')
+    creditor_iban = data.get('vendor', {}).get('iban', '') or data.get('payment', {}).get('iban', '')
+    
+    # Generate SEPA XML for single invoice
+    settings_doc = await db.settings.find_one({"id": "global_settings"})
+    settings = Settings(**settings_doc) if settings_doc else Settings()
+    sepa_xml = generate_sepa_xml([invoice], settings)
+    
+    if banking_config.get('simulation_mode', True):
+        payment_log = PaymentLog(
+            invoice_id=invoice_id,
+            invoice_number=inv_number,
+            amount=amount,
+            creditor_name=creditor_name,
+            creditor_iban=creditor_iban or "DE00000000000000000000",
+            reference=f"RE {inv_number}",
+            status=PaymentStatus.SIMULATED,
+            provider=BankingProvider.SIMULATION,
+            provider_transaction_id=f"SIM-PAY-{uuid.uuid4().hex[:12].upper()}",
+            sepa_xml=sepa_xml,
+            initiated_by="admin",
+            completed_at=datetime.utcnow()
+        )
+        await db.payments.insert_one(payment_log.model_dump())
+        
+        # Update invoice payment status
+        await db.invoices.update_one(
+            {"id": invoice_id},
+            {"$set": {"payment_status": "simulated", "payment_id": payment_log.id, "paid_at": datetime.utcnow()}}
+        )
+        
+        await log_audit(invoice_id, "payment_initiated", "system", {
+            "mode": "simulation",
+            "amount": amount,
+            "transaction_id": payment_log.provider_transaction_id
+        })
+        
+        return {
+            "success": True,
+            "mode": "simulation",
+            "payment_id": payment_log.id,
+            "transaction_id": payment_log.provider_transaction_id,
+            "amount": amount,
+            "message": f"Zahlung über {amount:.2f} EUR erfolgreich simuliert"
+        }
+    else:
+        # Real payment would go here via FinAPI/Tink/EBICS
+        raise HTTPException(status_code=501, detail="Echte Banküberweisung noch nicht implementiert")
+
+@api_router.get("/payments/status/{invoice_id}")
+async def get_payment_status(invoice_id: str):
+    """Get payment status for an invoice"""
+    payment = await db.payments.find_one(
+        {"invoice_id": invoice_id},
+        sort=[("initiated_at", -1)]
+    )
+    if not payment:
+        return {"status": "not_paid", "message": "Keine Zahlung vorhanden"}
+    payment.pop('_id', None)
+    payment.pop('sepa_xml', None)
+    return payment
+
+@api_router.get("/payments")
+async def list_payments(limit: int = 50):
+    """List all payments"""
+    payments = await db.payments.find(
+        {}, {"sepa_xml": 0}
+    ).sort("initiated_at", -1).limit(limit).to_list(limit)
+    for p in payments:
+        p.pop('_id', None)
+    return payments
+
+# Include the router in the main app
+app.include_router(api_router)
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
