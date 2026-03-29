@@ -10,7 +10,7 @@ import sys
 from datetime import datetime
 
 # Configuration
-BASE_URL = "https://invoice-ai-hub-5.preview.emergentagent.com/api"
+BASE_URL = "https://invoice-ocr-17.preview.emergentagent.com/api"
 ADMIN_EMAIL = "admin@candis-kopie.de"
 ADMIN_PASSWORD = "admin123"
 

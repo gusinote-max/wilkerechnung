@@ -13,7 +13,7 @@ import sys
 from datetime import datetime
 
 # Backend URL from frontend environment
-BASE_URL = "https://invoice-ai-hub-5.preview.emergentagent.com/api"
+BASE_URL = "https://invoice-ocr-17.preview.emergentagent.com/api"
 
 # Test credentials from memory/test_credentials.md
 ADMIN_EMAIL = "admin@candis-kopie.de"
