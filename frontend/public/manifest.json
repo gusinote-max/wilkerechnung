@@ -1,0 +1,27 @@
+{
+  "name": "Candis Kopie – Rechnungsmanagement",
+  "short_name": "Candis",
+  "description": "KI-gestütztes Rechnungsmanagement mit OCR, DATEV-Export und Genehmigungsworkflows",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f0f1a",
+  "theme_color": "#6c63ff",
+  "lang": "de",
+  "categories": ["finance", "business", "productivity"],
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

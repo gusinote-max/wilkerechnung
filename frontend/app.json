@@ -21,7 +21,13 @@
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/favicon.png",
+      "name": "Candis Kopie – Rechnungsmanagement",
+      "shortName": "Candis",
+      "description": "KI-gestütztes Rechnungsmanagement mit OCR, DATEV-Export und Genehmigungsworkflows",
+      "themeColor": "#6c63ff",
+      "backgroundColor": "#0f0f1a",
+      "lang": "de"
     },
     "plugins": [
       "expo-router",
