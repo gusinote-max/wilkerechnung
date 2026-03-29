@@ -14,7 +14,7 @@
 # Main and testing agents must follow this exact format to maintain testing data. 
 # The testing data must be entered in yaml format Below is the data structure:
 # 
-## user_problem_statement: "Candis-Kopie (Candis clone) - AI-powered invoice management system. In this session: 1) Fixed critical bug where login page was not appearing (import.meta SyntaxError from Zustand v5 ESM build blocked React hydration). 2) Implemented PWA support (manifest.json, sw.js, PWA meta tags). 3) Fixed auth redirect in root layout."
+## user_problem_statement: "Candis-Kopie (Candis clone) - AI-powered invoice management system. In this session: Fixed P0 bug where SKR51 accounts contained wrong NGO/Non-Profit data instead of correct KFZ-Branche (automotive) accounts. Replaced 203 wrong NGO accounts in MongoDB with 297 correct KFZ-Handel/Kfz-Handwerk accounts including Hebebühnen, Neufahrzeuge, Floorplan, Vorführfahrzeuge, Gebrauchtfahrzeuge, Werkstattkonten, etc."
 
 ## backend:
   - task: "Auth Login API"
