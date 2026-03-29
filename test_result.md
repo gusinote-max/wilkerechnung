@@ -14,7 +14,84 @@
 # Main and testing agents must follow this exact format to maintain testing data. 
 # The testing data must be entered in yaml format Below is the data structure:
 # 
-## user_problem_statement: {problem_statement}
+## user_problem_statement: "Candis-Kopie (Candis clone) - AI-powered invoice management system. In this session: 1) Fixed critical bug where login page was not appearing (import.meta SyntaxError from Zustand v5 ESM build blocked React hydration). 2) Implemented PWA support (manifest.json, sw.js, PWA meta tags). 3) Fixed auth redirect in root layout."
+
+## backend:
+  - task: "Auth Login API"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Login API working, returns JWT token"
+
+## frontend:
+  - task: "Login page redirect from /"
+    implemented: true
+    working: true
+    file: "frontend/app/_layout.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: false
+          agent: "main"
+          comment: "Login page was not appearing - Zustand v5 ESM build uses import.meta which caused SyntaxError blocking React hydration. Fixed by: 1) Creating babel.config.js with babel-preset-expo 2) Patching zustand/esm/middleware.mjs to remove import.meta 3) Moving auth guard to root _layout.tsx with setTimeout for navigator readiness"
+        - working: true
+          agent: "main"
+          comment: "Login page now appears correctly on redirect from /"
+
+  - task: "Login form functionality"
+    implemented: true
+    working: "NA"
+    file: "frontend/app/login.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "Login form UI shows correctly. Need to verify form submission works and redirects to dashboard"
+
+  - task: "PWA Support"
+    implemented: true
+    working: "NA"
+    file: "frontend/public/manifest.json"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "PWA manifest, service worker and icons created. meta tags added to +html.tsx. Need to verify installability"
+
+  - task: "Dashboard after login"
+    implemented: true
+    working: "NA"
+    file: "frontend/app/(tabs)/index.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "Need to verify dashboard loads after successful login"
+
+## metadata:
+  created_by: "main_agent"
+  version: "1.0"
+  test_sequence: 1
+  run_ui: true
+
+## test_plan:
+  current_focus: "Verify login flow works end-to-end: redirect to login, login with credentials, see dashboard"
+  stuck_tasks: []
+  test_all: false
+  debug_mode: false {problem_statement}
 ## backend:
 ##   - task: "Task name"
 ##     implemented: true

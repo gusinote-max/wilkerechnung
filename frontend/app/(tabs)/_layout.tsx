@@ -1,53 +1,11 @@
-import { Tabs, useRouter } from 'expo-router';
+import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { View, ActivityIndicator, StyleSheet, Platform } from 'react-native';
 import { useAuthStore } from '../../src/store/authStore';
 
 export default function TabLayout() {
   const { token } = useAuthStore();
-  const router = useRouter();
-  const [ready, setReady] = useState(false);
-
-  useEffect(() => {
-    // On web: check localStorage directly (synchronous) - no hydration delay
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      try {
-        const stored = window.localStorage.getItem('auth-storage');
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          if (parsed?.state?.token) {
-            // Valid token found - allow render
-            setReady(true);
-            return;
-          }
-        }
-        // No token - redirect to login immediately
-        router.replace('/login');
-        return;
-      } catch {
-        router.replace('/login');
-        return;
-      }
-    }
-    // On native: wait for AsyncStorage hydration
-    const timer = setTimeout(() => setReady(true), 800);
-    return () => clearTimeout(timer);
-  }, []);
-
-  useEffect(() => {
-    if (ready && !token) {
-      router.replace('/login');
-    }
-  }, [ready, token]);
-
-  if (!ready || !token) {
-    return (
-      <View style={styles.loading}>
-        <ActivityIndicator size="large" color="#6c5ce7" />
-      </View>
-    );
-  }
 
   return (
     <Tabs
