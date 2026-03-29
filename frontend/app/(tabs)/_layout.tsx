@@ -1,4 +1,4 @@
-import { Tabs, useRouter } from 'expo-router';
+import { Tabs, Redirect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
@@ -6,27 +6,35 @@ import { useAuthStore } from '../../src/store/authStore';
 
 export default function TabLayout() {
   const { token } = useAuthStore();
-  const router = useRouter();
-  const [mounted, setMounted] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    // Wait for client-side hydration
-    const timer = setTimeout(() => setMounted(true), 300);
-    return () => clearTimeout(timer);
+    // Check if Zustand store is already hydrated
+    if ((useAuthStore as any).persist?.hasHydrated?.()) {
+      setHydrated(true);
+      return;
+    }
+    // Wait for hydration (max 1.5s fallback)
+    const unsub = (useAuthStore as any).persist?.onFinishHydration?.(() => {
+      setHydrated(true);
+    });
+    const fallback = setTimeout(() => setHydrated(true), 1500);
+    return () => {
+      unsub?.();
+      clearTimeout(fallback);
+    };
   }, []);
 
-  useEffect(() => {
-    if (mounted && !token) {
-      router.replace('/login');
-    }
-  }, [mounted, token]);
-
-  if (!mounted || !token) {
+  if (!hydrated) {
     return (
       <View style={styles.loading}>
         <ActivityIndicator size="large" color="#6c5ce7" />
       </View>
     );
+  }
+
+  if (!token) {
+    return <Redirect href="/login" />;
   }
 
   return (
