@@ -163,6 +163,223 @@ SKR04_ACCOUNTS = [
     {"number": "7400", "name": "Sonstige betriebliche Aufwendungen", "category": "Aufwand"},
 ]
 
+# SKR51 - Kontenrahmen für gemeinnützige Organisationen (Vereine, Verbände, Stiftungen)
+SKR51_ACCOUNTS = [
+    # ===== Klasse 0: Anlagevermögen =====
+    {"number": "0100", "name": "Immaterielle Vermögensgegenstände", "category": "Anlagevermögen"},
+    {"number": "0110", "name": "Konzessionen und gewerbliche Schutzrechte", "category": "Anlagevermögen"},
+    {"number": "0120", "name": "Lizenzen und ähnliche Rechte", "category": "Anlagevermögen"},
+    {"number": "0130", "name": "Software", "category": "Anlagevermögen"},
+    {"number": "0140", "name": "Geleistete Anzahlungen auf immaterielle WG", "category": "Anlagevermögen"},
+    {"number": "0200", "name": "Grundstücke und grundstücksgleiche Rechte", "category": "Anlagevermögen"},
+    {"number": "0210", "name": "Unbebaute Grundstücke", "category": "Anlagevermögen"},
+    {"number": "0220", "name": "Grundstücke mit Wohnbauten", "category": "Anlagevermögen"},
+    {"number": "0230", "name": "Grundstücke mit Geschäfts- und Vereinsgebäuden", "category": "Anlagevermögen"},
+    {"number": "0240", "name": "Bauten auf fremden Grundstücken", "category": "Anlagevermögen"},
+    {"number": "0300", "name": "Technische Anlagen und Maschinen", "category": "Anlagevermögen"},
+    {"number": "0310", "name": "Maschinen und maschinelle Anlagen", "category": "Anlagevermögen"},
+    {"number": "0320", "name": "Mess- und Prüfgeräte", "category": "Anlagevermögen"},
+    {"number": "0400", "name": "Andere Anlagen, Betriebs- und Geschäftsausstattung", "category": "Anlagevermögen"},
+    {"number": "0410", "name": "Betriebs- und Geschäftsausstattung", "category": "Anlagevermögen"},
+    {"number": "0420", "name": "Fuhrpark / Kraftfahrzeuge", "category": "Anlagevermögen"},
+    {"number": "0430", "name": "EDV-Hardware", "category": "Anlagevermögen"},
+    {"number": "0440", "name": "Büromöbel und -einrichtungen", "category": "Anlagevermögen"},
+    {"number": "0490", "name": "Geringwertige Wirtschaftsgüter", "category": "Anlagevermögen"},
+    {"number": "0500", "name": "Finanzanlagen", "category": "Anlagevermögen"},
+    {"number": "0510", "name": "Beteiligungen", "category": "Anlagevermögen"},
+    {"number": "0520", "name": "Wertpapiere des Anlagevermögens", "category": "Anlagevermögen"},
+    {"number": "0530", "name": "Ausleihungen", "category": "Anlagevermögen"},
+    # ===== Klasse 1: Umlaufvermögen =====
+    {"number": "1000", "name": "Kasse", "category": "Umlaufvermögen"},
+    {"number": "1010", "name": "Handkasse", "category": "Umlaufvermögen"},
+    {"number": "1020", "name": "Barkasse (Veranstaltungen)", "category": "Umlaufvermögen"},
+    {"number": "1100", "name": "Bankguthaben", "category": "Umlaufvermögen"},
+    {"number": "1110", "name": "Girokonto", "category": "Umlaufvermögen"},
+    {"number": "1120", "name": "Festgeldkonto", "category": "Umlaufvermögen"},
+    {"number": "1130", "name": "Sparkonto", "category": "Umlaufvermögen"},
+    {"number": "1140", "name": "Tagesgeldkonto", "category": "Umlaufvermögen"},
+    {"number": "1150", "name": "PayPal / Online-Bezahlkonto", "category": "Umlaufvermögen"},
+    {"number": "1200", "name": "Forderungen aus Lieferungen und Leistungen", "category": "Umlaufvermögen"},
+    {"number": "1210", "name": "Forderungen aus Leistungen (Zweckbetrieb)", "category": "Umlaufvermögen"},
+    {"number": "1220", "name": "Forderungen aus wirtschaftlichem GB", "category": "Umlaufvermögen"},
+    {"number": "1300", "name": "Sonstige Forderungen", "category": "Umlaufvermögen"},
+    {"number": "1310", "name": "Forderungen an Mitglieder", "category": "Umlaufvermögen"},
+    {"number": "1320", "name": "Forderungen gegen verbundene Organisationen", "category": "Umlaufvermögen"},
+    {"number": "1330", "name": "Zuschussforderungen", "category": "Umlaufvermögen"},
+    {"number": "1340", "name": "Vorsteuer 19%", "category": "Umlaufvermögen"},
+    {"number": "1341", "name": "Vorsteuer 7%", "category": "Umlaufvermögen"},
+    {"number": "1400", "name": "Vorräte", "category": "Umlaufvermögen"},
+    {"number": "1410", "name": "Roh-, Hilfs- und Betriebsstoffe", "category": "Umlaufvermögen"},
+    {"number": "1420", "name": "Fertige Erzeugnisse und Waren", "category": "Umlaufvermögen"},
+    {"number": "1490", "name": "Geleistete Anzahlungen auf Vorräte", "category": "Umlaufvermögen"},
+    {"number": "1500", "name": "Wertpapiere des Umlaufvermögens", "category": "Umlaufvermögen"},
+    {"number": "1600", "name": "Aktive Rechnungsabgrenzungsposten", "category": "Umlaufvermögen"},
+    # ===== Klasse 2: Eigenkapital / Vereinsvermögen =====
+    {"number": "2000", "name": "Vereinsvermögen / Stiftungskapital", "category": "Eigenkapital"},
+    {"number": "2010", "name": "Gebundenes Vereinsvermögen", "category": "Eigenkapital"},
+    {"number": "2020", "name": "Freies Vereinsvermögen", "category": "Eigenkapital"},
+    {"number": "2100", "name": "Freie Rücklage", "category": "Eigenkapital"},
+    {"number": "2110", "name": "Zweckgebundene Rücklage", "category": "Eigenkapital"},
+    {"number": "2120", "name": "Betriebsmittelrücklage", "category": "Eigenkapital"},
+    {"number": "2130", "name": "Instandhaltungsrücklage", "category": "Eigenkapital"},
+    {"number": "2140", "name": "Ausgleichsrücklage", "category": "Eigenkapital"},
+    {"number": "2150", "name": "Rücklage nach § 62 Abs. 1 Nr. 1 AO", "category": "Eigenkapital"},
+    {"number": "2200", "name": "Projektmittel (zweckgebunden)", "category": "Eigenkapital"},
+    {"number": "2300", "name": "Spendenmittel (zeitlich befristet)", "category": "Eigenkapital"},
+    {"number": "2400", "name": "Erhaltene Erbschaften und Vermächtnisse (gebunden)", "category": "Eigenkapital"},
+    {"number": "2500", "name": "Jahresüberschuss / Jahresfehlbetrag", "category": "Eigenkapital"},
+    {"number": "2600", "name": "Vortrag auf neue Rechnung", "category": "Eigenkapital"},
+    # ===== Klasse 3: Verbindlichkeiten =====
+    {"number": "3000", "name": "Verbindlichkeiten aus Lieferungen und Leistungen", "category": "Verbindlichkeiten"},
+    {"number": "3010", "name": "Verbindlichkeiten (Zweckbetrieb)", "category": "Verbindlichkeiten"},
+    {"number": "3020", "name": "Verbindlichkeiten (wirtschaftlicher GB)", "category": "Verbindlichkeiten"},
+    {"number": "3100", "name": "Sonstige Verbindlichkeiten", "category": "Verbindlichkeiten"},
+    {"number": "3110", "name": "Verbindlichkeiten gegenüber Mitgliedern", "category": "Verbindlichkeiten"},
+    {"number": "3120", "name": "Verbindlichkeiten gegenüber verbundenen Org.", "category": "Verbindlichkeiten"},
+    {"number": "3130", "name": "Verbindlichkeiten gegenüber Fördergebern", "category": "Verbindlichkeiten"},
+    {"number": "3200", "name": "Verbindlichkeiten gegenüber Kreditinstituten", "category": "Verbindlichkeiten"},
+    {"number": "3210", "name": "Bankdarlehen", "category": "Verbindlichkeiten"},
+    {"number": "3300", "name": "Erhaltene Anzahlungen", "category": "Verbindlichkeiten"},
+    {"number": "3400", "name": "Umsatzsteuer 19%", "category": "Verbindlichkeiten"},
+    {"number": "3401", "name": "Umsatzsteuer 7%", "category": "Verbindlichkeiten"},
+    {"number": "3500", "name": "Rückstellungen", "category": "Verbindlichkeiten"},
+    {"number": "3510", "name": "Rückstellungen für Personalkosten", "category": "Verbindlichkeiten"},
+    {"number": "3520", "name": "Rückstellungen für ausstehende Rechnungen", "category": "Verbindlichkeiten"},
+    {"number": "3600", "name": "Passive Rechnungsabgrenzungsposten", "category": "Verbindlichkeiten"},
+    # ===== Klasse 4: Erträge – Ideeller Bereich =====
+    {"number": "4000", "name": "Mitgliedsbeiträge", "category": "Erträge Ideeller Bereich"},
+    {"number": "4010", "name": "Ordentliche Mitgliedsbeiträge", "category": "Erträge Ideeller Bereich"},
+    {"number": "4020", "name": "Aufnahmegebühren", "category": "Erträge Ideeller Bereich"},
+    {"number": "4030", "name": "Sonderbeiträge", "category": "Erträge Ideeller Bereich"},
+    {"number": "4040", "name": "Fördermitgliedsbeiträge", "category": "Erträge Ideeller Bereich"},
+    {"number": "4100", "name": "Spenden und Zuwendungen", "category": "Erträge Ideeller Bereich"},
+    {"number": "4110", "name": "Geldspenden (nicht zweckgebunden)", "category": "Erträge Ideeller Bereich"},
+    {"number": "4120", "name": "Geldspenden (zweckgebunden)", "category": "Erträge Ideeller Bereich"},
+    {"number": "4130", "name": "Sachspenden", "category": "Erträge Ideeller Bereich"},
+    {"number": "4140", "name": "Erbschaften und Vermächtnisse", "category": "Erträge Ideeller Bereich"},
+    {"number": "4150", "name": "Online-Spenden", "category": "Erträge Ideeller Bereich"},
+    {"number": "4160", "name": "Betriebliche Spenden (Unternehmen)", "category": "Erträge Ideeller Bereich"},
+    {"number": "4200", "name": "Öffentliche Zuschüsse und Zuwendungen", "category": "Erträge Ideeller Bereich"},
+    {"number": "4210", "name": "Bundeszuschüsse", "category": "Erträge Ideeller Bereich"},
+    {"number": "4220", "name": "Landesförderung", "category": "Erträge Ideeller Bereich"},
+    {"number": "4230", "name": "Kommunale Förderung", "category": "Erträge Ideeller Bereich"},
+    {"number": "4240", "name": "EU-Fördermittel", "category": "Erträge Ideeller Bereich"},
+    {"number": "4250", "name": "AMIF / ESF Mittel", "category": "Erträge Ideeller Bereich"},
+    {"number": "4300", "name": "Sonstige Zuschüsse und Zuwendungen", "category": "Erträge Ideeller Bereich"},
+    {"number": "4310", "name": "Zuschüsse von Verbänden und Dachorganisationen", "category": "Erträge Ideeller Bereich"},
+    {"number": "4320", "name": "Zuschüsse von Stiftungen", "category": "Erträge Ideeller Bereich"},
+    {"number": "4330", "name": "Zuschüsse von Kirchen", "category": "Erträge Ideeller Bereich"},
+    {"number": "4400", "name": "Bußgelder und Geldauflagen (§ 58 Nr. 6 AO)", "category": "Erträge Ideeller Bereich"},
+    {"number": "4500", "name": "Sonstige Erträge (ideeller Bereich)", "category": "Erträge Ideeller Bereich"},
+    {"number": "4510", "name": "Erträge aus Auflösung von Rücklagen", "category": "Erträge Ideeller Bereich"},
+    {"number": "4520", "name": "Erträge aus Sachspenden (Bewertung)", "category": "Erträge Ideeller Bereich"},
+    {"number": "4600", "name": "Zinserträge (ideeller Bereich)", "category": "Erträge Ideeller Bereich"},
+    {"number": "4700", "name": "Erträge aus Vermögensverwaltung (ideell)", "category": "Erträge Ideeller Bereich"},
+    # ===== Klasse 5: Erträge – Zweckbetrieb / Wirtschaftlicher Geschäftsbetrieb =====
+    {"number": "5000", "name": "Erlöse aus Zweckbetrieben (steuerbefreit)", "category": "Erträge Zweckbetrieb"},
+    {"number": "5010", "name": "Erlöse aus Sportveranstaltungen", "category": "Erträge Zweckbetrieb"},
+    {"number": "5020", "name": "Erlöse aus kulturellen Veranstaltungen", "category": "Erträge Zweckbetrieb"},
+    {"number": "5030", "name": "Erlöse aus sozialen Einrichtungen / Betreuung", "category": "Erträge Zweckbetrieb"},
+    {"number": "5040", "name": "Erlöse aus Bildungs- und Weiterbildungsmaßnahmen", "category": "Erträge Zweckbetrieb"},
+    {"number": "5050", "name": "Erlöse aus Beratungsleistungen (satzungsgemäß)", "category": "Erträge Zweckbetrieb"},
+    {"number": "5060", "name": "Erlöse aus Werkstätten für behinderte Menschen", "category": "Erträge Zweckbetrieb"},
+    {"number": "5070", "name": "Erlöse aus Krankenhäusern / Pflegeeinrichtungen", "category": "Erträge Zweckbetrieb"},
+    {"number": "5080", "name": "Pflegeleistungen 7% USt", "category": "Erträge Zweckbetrieb"},
+    {"number": "5100", "name": "Erlöse aus Vermögensverwaltung", "category": "Erträge Vermögensverwaltung"},
+    {"number": "5110", "name": "Miet- und Pachteinnahmen", "category": "Erträge Vermögensverwaltung"},
+    {"number": "5120", "name": "Zinseinnahmen", "category": "Erträge Vermögensverwaltung"},
+    {"number": "5130", "name": "Dividenden und Ausschüttungen", "category": "Erträge Vermögensverwaltung"},
+    {"number": "5140", "name": "Erlöse aus Wertpapierverkäufen", "category": "Erträge Vermögensverwaltung"},
+    {"number": "5200", "name": "Erlöse aus wirtschaftlichem Geschäftsbetrieb", "category": "Erträge Wirtschaftl. GB"},
+    {"number": "5210", "name": "Erlöse aus Warenverkauf", "category": "Erträge Wirtschaftl. GB"},
+    {"number": "5220", "name": "Erlöse aus Dienstleistungen 19% USt", "category": "Erträge Wirtschaftl. GB"},
+    {"number": "5230", "name": "Erlöse aus Veranstaltungen (wirtschaftlich)", "category": "Erträge Wirtschaftl. GB"},
+    {"number": "5240", "name": "Erlöse aus Werbung / Anzeigen", "category": "Erträge Wirtschaftl. GB"},
+    {"number": "5250", "name": "Erlöse aus Catering / Gastronomie", "category": "Erträge Wirtschaftl. GB"},
+    {"number": "5260", "name": "Erlöse aus Merchandising", "category": "Erträge Wirtschaftl. GB"},
+    {"number": "5300", "name": "Sonstige Erträge (wirtschaftlicher GB)", "category": "Erträge Wirtschaftl. GB"},
+    # ===== Klasse 6: Aufwendungen – Ideeller Bereich =====
+    {"number": "6000", "name": "Personalkosten (ideeller Bereich)", "category": "Aufwand Ideeller Bereich"},
+    {"number": "6010", "name": "Löhne und Gehälter (ideell)", "category": "Aufwand Ideeller Bereich"},
+    {"number": "6020", "name": "Soziale Abgaben und Altersversorgung (ideell)", "category": "Aufwand Ideeller Bereich"},
+    {"number": "6030", "name": "Aufwendungen für Aushilfskräfte und Honorare", "category": "Aufwand Ideeller Bereich"},
+    {"number": "6040", "name": "Aufwandsentschädigungen (Ehrenamt, § 3 Nr. 26 EStG)", "category": "Aufwand Ideeller Bereich"},
+    {"number": "6050", "name": "Übungsleiterpauschale (§ 3 Nr. 26 EStG)", "category": "Aufwand Ideeller Bereich"},
+    {"number": "6060", "name": "Ehrenamtspauschale (§ 3 Nr. 26a EStG)", "category": "Aufwand Ideeller Bereich"},
+    {"number": "6070", "name": "Reisekostenerstattungen (Ehrenamt)", "category": "Aufwand Ideeller Bereich"},
+    {"number": "6100", "name": "Sachkosten (ideeller Bereich)", "category": "Aufwand Ideeller Bereich"},
+    {"number": "6110", "name": "Raummiete und Nebenkosten (ideell)", "category": "Aufwand Ideeller Bereich"},
+    {"number": "6120", "name": "Energie und Wasser (ideell)", "category": "Aufwand Ideeller Bereich"},
+    {"number": "6130", "name": "Büromaterial und Drucksachen (ideell)", "category": "Aufwand Ideeller Bereich"},
+    {"number": "6140", "name": "Porto und Telekommunikation (ideell)", "category": "Aufwand Ideeller Bereich"},
+    {"number": "6150", "name": "EDV-Kosten und Software (ideell)", "category": "Aufwand Ideeller Bereich"},
+    {"number": "6160", "name": "Reise- und Fahrtkosten (ideell)", "category": "Aufwand Ideeller Bereich"},
+    {"number": "6170", "name": "Fortbildungskosten (ideell)", "category": "Aufwand Ideeller Bereich"},
+    {"number": "6180", "name": "Öffentlichkeitsarbeit und Werbung (ideell)", "category": "Aufwand Ideeller Bereich"},
+    {"number": "6190", "name": "Sonstige Sachkosten (ideell)", "category": "Aufwand Ideeller Bereich"},
+    {"number": "6200", "name": "Satzungszweckkosten / Projektkosten", "category": "Aufwand Satzungszweck"},
+    {"number": "6210", "name": "Projektzuschüsse ausgereicht", "category": "Aufwand Satzungszweck"},
+    {"number": "6220", "name": "Sachkosten für Projekte (satzungsgemäß)", "category": "Aufwand Satzungszweck"},
+    {"number": "6230", "name": "Personalkosten für Projekte", "category": "Aufwand Satzungszweck"},
+    {"number": "6240", "name": "Kosten für Veranstaltungen (satzungsgemäß)", "category": "Aufwand Satzungszweck"},
+    {"number": "6250", "name": "Materialkosten für satzungsgemäße Zwecke", "category": "Aufwand Satzungszweck"},
+    {"number": "6260", "name": "Weiterleitungen an andere gemeinnützige Org.", "category": "Aufwand Satzungszweck"},
+    {"number": "6300", "name": "Verwaltungskosten", "category": "Aufwand Verwaltung"},
+    {"number": "6310", "name": "Miete Büro / Verwaltungsräume", "category": "Aufwand Verwaltung"},
+    {"number": "6320", "name": "Bürobedarf und Verwaltungsmaterial", "category": "Aufwand Verwaltung"},
+    {"number": "6330", "name": "Telefon und Internet (Verwaltung)", "category": "Aufwand Verwaltung"},
+    {"number": "6340", "name": "Buchhaltung und Steuerberatung", "category": "Aufwand Verwaltung"},
+    {"number": "6350", "name": "Rechtsberatung und Notarkosten", "category": "Aufwand Verwaltung"},
+    {"number": "6360", "name": "Versicherungen (Verwaltung)", "category": "Aufwand Verwaltung"},
+    {"number": "6370", "name": "Bankgebühren und Kontoführungsgebühren", "category": "Aufwand Verwaltung"},
+    {"number": "6380", "name": "Prüfungskosten / Wirtschaftsprüfer", "category": "Aufwand Verwaltung"},
+    {"number": "6390", "name": "Sonstige Verwaltungskosten", "category": "Aufwand Verwaltung"},
+    {"number": "6400", "name": "Fundraisingkosten", "category": "Aufwand Fundraising"},
+    {"number": "6410", "name": "Werbematerial und Spendenmailings", "category": "Aufwand Fundraising"},
+    {"number": "6420", "name": "Fundraising-Dienstleistungen", "category": "Aufwand Fundraising"},
+    {"number": "6430", "name": "Veranstaltungskosten (Fundraising)", "category": "Aufwand Fundraising"},
+    {"number": "6440", "name": "Online-Fundraising und CRM-Kosten", "category": "Aufwand Fundraising"},
+    {"number": "6500", "name": "Abschreibungen", "category": "Aufwand Abschreibungen"},
+    {"number": "6510", "name": "Abschreibungen auf immaterielle Wirtschaftsgüter", "category": "Aufwand Abschreibungen"},
+    {"number": "6520", "name": "Abschreibungen auf Sachanlagen", "category": "Aufwand Abschreibungen"},
+    {"number": "6530", "name": "Abschreibungen auf GWG", "category": "Aufwand Abschreibungen"},
+    {"number": "6600", "name": "Zinsen und ähnliche Aufwendungen", "category": "Aufwand Finanzen"},
+    {"number": "6610", "name": "Zinsaufwand für Bankdarlehen", "category": "Aufwand Finanzen"},
+    {"number": "6700", "name": "Sonstige Aufwendungen (ideeller Bereich)", "category": "Aufwand Ideeller Bereich"},
+    {"number": "6710", "name": "Schadensfälle und Verluste", "category": "Aufwand Ideeller Bereich"},
+    {"number": "6720", "name": "Beiträge an Verbände und Dachorganisationen", "category": "Aufwand Ideeller Bereich"},
+    {"number": "6730", "name": "Aufwendungen für Mitgliederversammlung", "category": "Aufwand Ideeller Bereich"},
+    {"number": "6740", "name": "Aufwendungen für Vorstand / Gremien", "category": "Aufwand Ideeller Bereich"},
+    {"number": "6750", "name": "Steuern (ideeller Bereich)", "category": "Aufwand Ideeller Bereich"},
+    # ===== Klasse 7: Aufwendungen – Zweckbetrieb / Wirtschaftlicher Geschäftsbetrieb =====
+    {"number": "7000", "name": "Aufwendungen Zweckbetrieb", "category": "Aufwand Zweckbetrieb"},
+    {"number": "7010", "name": "Personalkosten Zweckbetrieb", "category": "Aufwand Zweckbetrieb"},
+    {"number": "7020", "name": "Sachkosten Zweckbetrieb", "category": "Aufwand Zweckbetrieb"},
+    {"number": "7030", "name": "Materialkosten Zweckbetrieb", "category": "Aufwand Zweckbetrieb"},
+    {"number": "7040", "name": "Raumkosten Zweckbetrieb", "category": "Aufwand Zweckbetrieb"},
+    {"number": "7050", "name": "Abschreibungen Zweckbetrieb", "category": "Aufwand Zweckbetrieb"},
+    {"number": "7100", "name": "Aufwendungen Vermögensverwaltung", "category": "Aufwand Vermögensverwaltung"},
+    {"number": "7110", "name": "Instandhaltung Mietobjekte", "category": "Aufwand Vermögensverwaltung"},
+    {"number": "7120", "name": "Verwaltungskosten Kapitalanlagen", "category": "Aufwand Vermögensverwaltung"},
+    {"number": "7200", "name": "Aufwendungen wirtschaftlicher Geschäftsbetrieb", "category": "Aufwand Wirtschaftl. GB"},
+    {"number": "7210", "name": "Wareneinkauf (wirtschaftl. GB)", "category": "Aufwand Wirtschaftl. GB"},
+    {"number": "7220", "name": "Personalkosten wirtschaftlicher GB", "category": "Aufwand Wirtschaftl. GB"},
+    {"number": "7230", "name": "Sachkosten wirtschaftlicher GB", "category": "Aufwand Wirtschaftl. GB"},
+    {"number": "7240", "name": "Raumkosten wirtschaftlicher GB", "category": "Aufwand Wirtschaftl. GB"},
+    {"number": "7250", "name": "Abschreibungen wirtschaftlicher GB", "category": "Aufwand Wirtschaftl. GB"},
+    {"number": "7260", "name": "Körperschaftsteuer wirtschaftlicher GB", "category": "Aufwand Wirtschaftl. GB"},
+    {"number": "7270", "name": "Gewerbesteuer wirtschaftlicher GB", "category": "Aufwand Wirtschaftl. GB"},
+    # ===== Klasse 8: Umsatzsteuer / Steuerkonten =====
+    {"number": "8400", "name": "Erlöse aus Lieferungen 19% USt", "category": "Umsatzsteuer"},
+    {"number": "8300", "name": "Erlöse aus Lieferungen 7% USt", "category": "Umsatzsteuer"},
+    {"number": "8100", "name": "Steuerfreie Umsätze (§ 4 UStG)", "category": "Umsatzsteuer"},
+    {"number": "8120", "name": "Nicht steuerbare Umsätze", "category": "Umsatzsteuer"},
+    # ===== Klasse 9: Abschlusskonten =====
+    {"number": "9000", "name": "Saldenvortragskonten", "category": "Abschluss"},
+    {"number": "9800", "name": "Gewinn- und Verlustrechnung", "category": "Abschluss"},
+    {"number": "9820", "name": "Jahresüberschuss / Jahresfehlbetrag", "category": "Abschluss"},
+]
+
 # ===================== MODELS =====================
 class LineItem(BaseModel):
     description: str = ""
@@ -241,7 +458,7 @@ class Settings(BaseModel):
     company_vat_id: str = ""
     company_iban: str = ""
     company_bic: str = ""
-    default_kontenrahmen: str = "SKR03"  # SKR03 or SKR04
+    default_kontenrahmen: str = "SKR03"  # SKR03, SKR04, or SKR51
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 # DATEV Unternehmen Online Configuration
@@ -396,7 +613,7 @@ class Account(BaseModel):
     number: str
     name: str
     category: str
-    kontenrahmen: str  # SKR03 or SKR04
+    kontenrahmen: str  # SKR03, SKR04, or SKR51
     active: bool = True
 
 # NEW: Reminder Model
@@ -1443,13 +1660,18 @@ async def delete_user(user_id: str, current_user: dict = Depends(require_admin()
 
 @api_router.get("/accounts")
 async def get_accounts(kontenrahmen: str = Query(default="SKR03")):
-    """Get accounts from Kontenrahmen (SKR03 or SKR04)"""
+    """Get accounts from Kontenrahmen (SKR03, SKR04, or SKR51)"""
     # Check if accounts exist in DB
     count = await db.accounts.count_documents({"kontenrahmen": kontenrahmen})
     
     if count == 0:
-        # Seed accounts
-        accounts_data = SKR03_ACCOUNTS if kontenrahmen == "SKR03" else SKR04_ACCOUNTS
+        # Seed accounts based on selected framework
+        if kontenrahmen == "SKR51":
+            accounts_data = SKR51_ACCOUNTS
+        elif kontenrahmen == "SKR04":
+            accounts_data = SKR04_ACCOUNTS
+        else:
+            accounts_data = SKR03_ACCOUNTS
         for acc in accounts_data:
             account = Account(
                 number=acc['number'],

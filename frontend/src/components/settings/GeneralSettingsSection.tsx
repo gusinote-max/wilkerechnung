@@ -135,7 +135,16 @@ export default function GeneralSettingsSection({ initialSettings, isDesktop, sho
               onPress={() => setKontenrahmen('SKR04')}>
               <Text style={[styles.radioText, kontenrahmen === 'SKR04' && styles.radioTextActive]}>SKR04</Text>
             </TouchableOpacity>
+            <TouchableOpacity style={[styles.radioButton, kontenrahmen === 'SKR51' && styles.radioButtonActive]}
+              onPress={() => setKontenrahmen('SKR51')}>
+              <Text style={[styles.radioText, kontenrahmen === 'SKR51' && styles.radioTextActive]}>SKR51</Text>
+            </TouchableOpacity>
           </View>
+          <Text style={styles.hintText}>
+            {kontenrahmen === 'SKR51' ? '🏛️ Für gemeinnützige Organisationen, Vereine und Stiftungen' :
+             kontenrahmen === 'SKR04' ? '🏭 Für Industrie- und Produktionsunternehmen' :
+             '🏢 Für Handels- und Dienstleistungsunternehmen'}
+          </Text>
         </View>
       </View>
 
@@ -211,8 +220,9 @@ const styles = StyleSheet.create({
   radioGroup: { flexDirection: 'row', gap: 12 },
   radioButton: { flex: 1, backgroundColor: '#0f0f1a', borderRadius: 10, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: '#2d2d44' },
   radioButtonActive: { backgroundColor: '#6c5ce730', borderColor: '#6c5ce7' },
-  radioText: { fontSize: 15, color: '#a0a0a0', fontWeight: '600' },
+  radioText: { fontSize: 14, color: '#a0a0a0', fontWeight: '600' },
   radioTextActive: { color: '#6c5ce7' },
+  hintText: { fontSize: 12, color: '#636e72', marginTop: 8, fontStyle: 'italic' },
   saveButton: { backgroundColor: '#6c5ce7', marginHorizontal: 16, marginTop: 16, borderRadius: 12, padding: 16, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' },
   saveButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', padding: 20 },

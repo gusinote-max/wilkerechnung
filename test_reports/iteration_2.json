@@ -1,0 +1,52 @@
+{
+  "summary": "Tested SKR51 Kontenrahmen feature for Candis-Kopie. All 6 requested features verified: login, settings navigation, SKR51 radio button visibility, SKR51 save, GET /api/accounts?kontenrahmen=SKR51 returning 203 accounts, and expected categories. 17/17 backend tests passed, all frontend flows confirmed via Playwright.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_skr51.py",
+    "/app/test_reports/pytest/skr51_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "SKR51 correctly implemented with 203 accounts covering all required categories for non-profit orgs",
+    "Settings model correctly allows 'SKR03', 'SKR04', or 'SKR51' as default_kontenrahmen",
+    "GET /api/accounts auto-seeds DB on first request per kontenrahmen - lazy loading works correctly",
+    "MongoDB _id properly excluded from accounts API response",
+    "PUT /api/settings correctly requires admin auth (401 without token)",
+    "DATEV Export and SEPA Banking are MOCKED/SIMULATED as per requirements (visible in Settings)"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_skr51.py"
+  ],
+  "success_rate": {
+    "backend": "100% (17/17 tests passed)",
+    "frontend": "100% (all 6 features verified)"
+  },
+  "seed_data_creation": "None - SKR51 accounts auto-seeded by GET /api/accounts?kontenrahmen=SKR51 on first call",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "SKR51 fully working. Settings screen has user management at top, scroll down ~1200px to reach Firmendaten/Kontenrahmen section. SKR51 radio button is 3rd in the row. After clicking SKR51, hint text '🏛️ Für gemeinnützige Organisationen, Vereine und Stiftungen' appears. Save shows green toast 'Einstellungen wurden gespeichert'. GET /api/accounts?kontenrahmen=SKR51 does NOT require auth.",
+  "test_results": {
+    "login_admin": "PASS - admin@candis-kopie.de/admin123 returns 200 with admin role token",
+    "settings_tab_navigation": "PASS - Einstellungen tab navigates to /settings correctly",
+    "skr51_radio_button_visible": "PASS - SKR03, SKR04, SKR51 all visible in Standard-Kontenrahmen section",
+    "skr51_click_hint_text": "PASS - Clicking SKR51 shows 'Für gemeinnützige Organisationen, Vereine und Stiftungen' hint",
+    "skr51_save_settings": "PASS - PUT /api/settings returns 200, success toast 'Einstellungen wurden gespeichert' shown",
+    "get_skr51_accounts_200": "PASS - GET /api/accounts?kontenrahmen=SKR51 returns 200",
+    "skr51_accounts_count": "PASS - Exactly 203 accounts returned",
+    "skr51_category_ertrage_ideeller_bereich": "PASS - Category 'Erträge Ideeller Bereich' found (accounts 4000-4700)",
+    "skr51_category_aufwand_satzungszweck": "PASS - Category 'Aufwand Satzungszweck' found (accounts 6200-6260)",
+    "skr51_mitgliedsbeitraege": "PASS - Mitgliedsbeiträge accounts found (4000-4040)",
+    "skr51_spenden": "PASS - Spenden accounts found (4100-4160)",
+    "skr51_no_mongodb_id": "PASS - No MongoDB _id in response",
+    "settings_auth_protection": "PASS - PUT /api/settings returns 401 without auth token"
+  }
+}
