@@ -141,7 +141,7 @@ export default function GeneralSettingsSection({ initialSettings, isDesktop, sho
             </TouchableOpacity>
           </View>
           <Text style={styles.hintText}>
-            {kontenrahmen === 'SKR51' ? '🏛️ Für gemeinnützige Organisationen, Vereine und Stiftungen' :
+            {kontenrahmen === 'SKR51' ? '🚗 Für Kfz-Handel und Kfz-Handwerk (Autohaus, Werkstatt)' :
              kontenrahmen === 'SKR04' ? '🏭 Für Industrie- und Produktionsunternehmen' :
              '🏢 Für Handels- und Dienstleistungsunternehmen'}
           </Text>
