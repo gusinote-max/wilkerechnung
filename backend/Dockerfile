@@ -1,23 +1,19 @@
 # ============================================================
 # Candis-Kopie – Backend Dockerfile (FastAPI / Python 3.11)
 # ============================================================
-FROM python:3.11-slim
+FROM python:3.11
 
 WORKDIR /app
 
-# System-Abhängigkeiten (für lxml, cryptography, IMAP-SSL)
+# System-Abhängigkeiten
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    libssl-dev \
-    libffi-dev \
     libxml2-dev \
     libxslt-dev \
-    python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Python-Abhängigkeiten installieren
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Produktions-Abhängigkeiten (stabile Versionen, ohne Dev-Tools)
+COPY requirements-prod.txt .
+RUN pip install --no-cache-dir -r requirements-prod.txt
 
 # Quellcode kopieren
 COPY . .

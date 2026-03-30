@@ -1,0 +1,50 @@
+# Produktions-Abhängigkeiten (ohne Dev-Tools)
+# Generiert für Docker-Deployment auf Hostinger VPS
+
+# Web Framework
+fastapi==0.110.1
+uvicorn[standard]==0.25.0
+starlette==0.37.2
+python-multipart==0.0.22
+
+# Datenbank
+motor==3.3.1
+pymongo==4.5.0
+dnspython==2.8.0
+
+# Auth & Security
+python-jose[cryptography]==3.5.0
+passlib[bcrypt]==1.7.4
+bcrypt==4.1.3
+cryptography==44.0.0
+
+# Datenvalidierung
+pydantic[email]==2.6.4
+pydantic-settings==2.2.1
+email-validator==2.3.0
+annotated-types==0.7.0
+
+# HTTP Client
+httpx==0.28.1
+aiohttp==3.13.3
+requests==2.32.5
+
+# Async
+anyio==4.13.0
+aiofiles==25.1.0
+
+# E-Mail IMAP
+imap-tools==1.11.1
+
+# Scheduler
+APScheduler==3.11.2
+
+# XML/Rechnungsverarbeitung
+lxml==5.2.2
+defusedxml==0.7.1
+
+# Utilities
+python-dotenv==1.2.2
+python-dateutil==2.9.0.post0
+packaging==24.0
+typing_extensions==4.12.2
