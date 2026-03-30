@@ -2682,17 +2682,27 @@ async def get_imap_settings() -> ImapSettings:
 
 def _fetch_emails_from_imap(host: str, port: int, user: str, password: str, folder: str, ssl: bool, limit: int = 50) -> List[dict]:
     """Blocking IMAP fetch – runs in thread pool"""
-    from imap_tools import MailBox, MailBoxTls, AND
+    from imap_tools import MailBox, MailBoxUnencrypted
+
+    # Attachment types and extensions recognized as invoice-relevant
+    ALLOWED_TYPES = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png',
+                     'image/tiff', 'application/octet-stream', 'application/xml',
+                     'text/xml', 'application/zip']
+    ALLOWED_EXTS = ['.pdf', '.jpg', '.jpeg', '.png', '.tiff', '.tif', '.xml']
+
     result = []
     try:
-        mb_class = MailBox if ssl else MailBoxTls
-        with MailBox(host, port=port).login(user, password, folder) as mailbox:
+        mb_class = MailBox if ssl else MailBoxUnencrypted
+        with mb_class(host, port=port).login(user, password, folder) as mailbox:
             msgs = list(mailbox.fetch(limit=limit, reverse=True))
             for msg in msgs:
                 attachments = []
                 for att in msg.attachments:
-                    ct = att.content_type.lower()
-                    if any(ct.startswith(t) for t in ['application/pdf', 'image/jpeg', 'image/png', 'image/tiff']):
+                    ct = att.content_type.lower().split(';')[0].strip()
+                    fname = (att.filename or '').lower()
+                    ext = '.' + fname.rsplit('.', 1)[-1] if '.' in fname else ''
+                    # Accept if content-type matches OR filename extension matches
+                    if any(ct.startswith(t) for t in ALLOWED_TYPES) or ext in ALLOWED_EXTS:
                         attachments.append({
                             "filename": att.filename or "anhang.pdf",
                             "content_type": att.content_type,
@@ -2803,10 +2813,13 @@ Mögliche Dokumenttypen: Eingangsrechnung, Lieferschein, Angebot, Auftragsbestä
         logger.error(f"AI classification error for email {item_id}: {e}")
         await db.email_inbox.update_one({"id": item_id}, {"$set": {"ai_status": "uncertain", "ai_confidence": 0.5, "ai_checked_at": datetime.utcnow()}})
 
-async def poll_imap_and_store():
+async def poll_imap_and_store(force: bool = False) -> int:
     """Fetch new emails from IMAP and store in DB"""
     imap_cfg = await get_imap_settings()
-    if not imap_cfg.imap_enabled or not imap_cfg.imap_host:
+    # For automatic polling: only if enabled; for manual (force=True): always try
+    if not force and (not imap_cfg.imap_enabled or not imap_cfg.imap_host):
+        return 0
+    if not imap_cfg.imap_host or not imap_cfg.imap_user:
         return 0
 
     loop = asyncio.get_event_loop()
@@ -2927,7 +2940,7 @@ async def get_email_inbox(
 @api_router.post("/email-inbox/poll")
 async def manual_poll_inbox(current_user: dict = Depends(require_accountant_or_above())):
     """Manually trigger IMAP poll"""
-    new_count = await poll_imap_and_store()
+    new_count = await poll_imap_and_store(force=True)
     return {"message": f"{new_count} neue E-Mail(s) abgerufen", "new_count": new_count}
 
 @api_router.post("/email-inbox/{item_id}/ai-check")
