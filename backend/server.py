@@ -842,7 +842,16 @@ class EmailInboxItem(BaseModel):
     imported: bool = False
     invoice_id: Optional[str] = None
     imported_at: Optional[datetime] = None
+    archived: bool = False
     fetched_at: datetime = Field(default_factory=datetime.utcnow)
+
+class SenderRule(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    pattern: str  # e.g. "bosch.de" or "rechnungen@lieferant.de"
+    match_type: str = "domain"  # domain, email, contains
+    label: str = ""  # optional display name, e.g. "Bosch GmbH"
+    action: str = "trusted"  # trusted = auto-classify as invoice
+    created_at: datetime = Field(default_factory=datetime.utcnow)
 
 # ===================== AUTH HELPERS =====================
 def hash_password(password: str) -> str:
@@ -2734,6 +2743,21 @@ async def run_ai_classification_for_email(item_id: str):
 
     await db.email_inbox.update_one({"id": item_id}, {"$set": {"ai_status": "checking"}})
 
+    # Check sender rules first (trusted sender → skip AI, mark as invoice directly)
+    sender = item_doc.get("sender", "")
+    matched_rule = await check_sender_rules(sender)
+    if matched_rule:
+        await db.email_inbox.update_one(
+            {"id": item_id},
+            {"$set": {
+                "ai_status": "invoice",
+                "ai_confidence": 1.0,
+                "ai_details": {"document_type": "Eingangsrechnung", "reason": f"Vertrauenswürdiger Absender: {matched_rule.label or matched_rule.pattern}"},
+                "ai_checked_at": datetime.utcnow()
+            }}
+        )
+        return
+
     settings = await get_settings()
     if not settings.ai_settings.api_key:
         await db.email_inbox.update_one({"id": item_id}, {"$set": {"ai_status": "pending", "ai_checked_at": datetime.utcnow()}})
@@ -2919,19 +2943,19 @@ async def test_imap_connection(current_user: dict = Depends(require_admin())):
 
 @api_router.get("/email-inbox")
 async def get_email_inbox(
-    limit: int = 50,
+    limit: int = 100,
+    show_archived: bool = False,
     status_filter: Optional[str] = None,
     current_user: dict = Depends(require_accountant_or_above())
 ):
     """Get emails from inbox cache"""
-    query: dict = {}
+    query: dict = {"archived": show_archived}
     if status_filter and status_filter != "all":
         query["ai_status"] = status_filter
     items = await db.email_inbox.find(query).sort("date", -1).limit(limit).to_list(limit)
     result = []
     for item in items:
         item.pop("_id", None)
-        # Don't send attachment content in list view
         for att in item.get("attachments", []):
             att.pop("content_base64", None)
         result.append(item)
@@ -3003,7 +3027,7 @@ async def import_email_attachment(item_id: str, attachment_index: int = 0, curre
 
         await db.email_inbox.update_one(
             {"id": item_id},
-            {"$set": {"imported": True, "invoice_id": invoice.id, "imported_at": datetime.utcnow()}}
+            {"$set": {"imported": True, "archived": True, "invoice_id": invoice.id, "imported_at": datetime.utcnow()}}
         )
         return {"message": "Rechnung erfolgreich importiert", "invoice_id": invoice.id}
     except Exception as e:
@@ -3015,6 +3039,101 @@ async def delete_inbox_item(item_id: str, current_user: dict = Depends(require_a
     """Remove email from inbox cache"""
     await db.email_inbox.delete_one({"id": item_id})
     return {"message": "E-Mail aus Posteingangsliste entfernt"}
+
+# ===================== SENDER RULES =====================
+
+@api_router.get("/email-inbox/sender-rules")
+async def get_sender_rules(current_user: dict = Depends(require_accountant_or_above())):
+    rules = await db.sender_rules.find().sort("created_at", -1).to_list(200)
+    for r in rules:
+        r.pop("_id", None)
+    return rules
+
+@api_router.post("/email-inbox/sender-rules")
+async def add_sender_rule(
+    pattern: str,
+    match_type: str = "domain",
+    label: str = "",
+    action: str = "trusted",
+    current_user: dict = Depends(require_accountant_or_above())
+):
+    rule = SenderRule(pattern=pattern.lower().strip(), match_type=match_type, label=label, action=action)
+    await db.sender_rules.insert_one(rule.model_dump())
+    return rule.model_dump()
+
+@api_router.delete("/email-inbox/sender-rules/{rule_id}")
+async def delete_sender_rule(rule_id: str, current_user: dict = Depends(require_accountant_or_above())):
+    await db.sender_rules.delete_one({"id": rule_id})
+    return {"message": "Regel gelöscht"}
+
+async def check_sender_rules(sender_email: str) -> Optional[SenderRule]:
+    """Check if sender matches any trusted/blocked rule"""
+    sender_lower = sender_email.lower().strip()
+    rules = await db.sender_rules.find({"action": "trusted"}).to_list(200)
+    for r in rules:
+        p = r["pattern"]
+        mt = r.get("match_type", "domain")
+        if mt == "email" and sender_lower == p:
+            return SenderRule(**{k: v for k, v in r.items() if k != "_id"})
+        elif mt == "domain" and sender_lower.endswith(f"@{p}") or sender_lower.endswith(f".{p}"):
+            return SenderRule(**{k: v for k, v in r.items() if k != "_id"})
+        elif mt == "contains" and p in sender_lower:
+            return SenderRule(**{k: v for k, v in r.items() if k != "_id"})
+    return None
+
+# ===================== BATCH IMPORT =====================
+
+@api_router.post("/email-inbox/batch-import")
+async def batch_import_emails(
+    item_ids: List[str],
+    current_user: dict = Depends(require_accountant_or_above())
+):
+    """Import multiple email attachments as invoices"""
+    results = []
+    for item_id in item_ids:
+        try:
+            item = await db.email_inbox.find_one({"id": item_id})
+            if not item or item.get("imported"):
+                results.append({"id": item_id, "success": False, "message": "Übersprungen (bereits importiert oder nicht gefunden)"})
+                continue
+            attachments = item.get("attachments", [])
+            if not attachments:
+                results.append({"id": item_id, "success": False, "message": "Kein Anhang"})
+                continue
+            att = attachments[0]
+            raw_b64 = att.get("content_base64", "")
+            if not raw_b64:
+                results.append({"id": item_id, "success": False, "message": "Anhangsdaten fehlen"})
+                continue
+            content_type = att.get("content_type", "application/pdf")
+            image_base64 = f"data:{content_type};base64,{raw_b64}"
+            invoice_data = await extract_invoice_with_ai(image_base64)
+            stored_image = image_base64
+            if 'pdf' in content_type.lower() or _is_pdf_base64(raw_b64):
+                try:
+                    pdf_bytes = base64.b64decode(raw_b64)
+                    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+                    page = doc.load_page(0)
+                    pix = page.get_pixmap(matrix=fitz.Matrix(2.0, 2.0))
+                    stored_image = f"data:image/png;base64,{base64.b64encode(pix.tobytes('png')).decode()}"
+                    doc.close()
+                except Exception:
+                    pass
+            invoice = Invoice(data=invoice_data, image_base64=stored_image, status=InvoiceStatus.PENDING)
+            invoice.search_text = generate_search_text(invoice_data.model_dump())
+            invoice.gobd_hash = generate_gobd_hash(invoice.model_dump())
+            await db.invoices.insert_one(invoice.model_dump())
+            await log_audit(invoice.id, "created", current_user.get("email", "system"), {"source": "email_batch_import", "email_subject": item.get("subject", "")})
+            await db.email_inbox.update_one(
+                {"id": item_id},
+                {"$set": {"imported": True, "archived": True, "invoice_id": invoice.id, "imported_at": datetime.utcnow()}}
+            )
+            results.append({"id": item_id, "success": True, "invoice_id": invoice.id, "message": "Importiert"})
+        except Exception as e:
+            logger.error(f"Batch import error for {item_id}: {e}")
+            results.append({"id": item_id, "success": False, "message": str(e)})
+    success_count = sum(1 for r in results if r["success"])
+    return {"results": results, "success_count": success_count, "total": len(item_ids)}
 
 @app.on_event("startup")
 async def startup_event():

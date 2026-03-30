@@ -1,7 +1,8 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, RefreshControl, Platform, Dimensions,
+  TextInput, Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
@@ -10,68 +11,62 @@ import { useAuthStore } from '../../src/store/authStore';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
-const SCREEN_WIDTH = Dimensions.get('window').width;
+const IS_DESKTOP = Platform.OS === 'web' && Dimensions.get('window').width > 900;
 
 type AiStatus = 'pending' | 'checking' | 'invoice' | 'not_invoice' | 'uncertain';
 
-interface Attachment {
-  filename: string;
-  content_type: string;
-  size_bytes: number;
-}
-
+interface Attachment { filename: string; content_type: string; size_bytes: number; }
 interface EmailItem {
-  id: string;
-  uid: string;
-  subject: string;
-  sender: string;
-  date: string;
-  attachments: Attachment[];
-  ai_status: AiStatus;
-  ai_confidence: number;
-  ai_details: {
-    document_type?: string;
-    vendor_name?: string;
-    gross_amount?: number;
-    reason?: string;
-  } | null;
-  imported: boolean;
-  invoice_id?: string;
+  id: string; uid: string; subject: string; sender: string; date: string;
+  attachments: Attachment[]; ai_status: AiStatus; ai_confidence: number;
+  ai_details: { document_type?: string; vendor_name?: string; gross_amount?: number; reason?: string; } | null;
+  imported: boolean; archived: boolean; invoice_id?: string;
+}
+interface SenderRule {
+  id: string; pattern: string; match_type: string; label: string; action: string; created_at: string;
 }
 
 const AI_BADGE: Record<AiStatus, { color: string; bg: string; icon: string; label: string }> = {
-  pending:     { color: '#636e72', bg: '#636e7220', icon: 'time-outline',          label: 'Ausstehend' },
-  checking:    { color: '#fdcb6e', bg: '#fdcb6e20', icon: 'hourglass-outline',     label: 'KI prüft...' },
-  invoice:     { color: '#00b894', bg: '#00b89420', icon: 'checkmark-circle',      label: 'Eingangsrechnung' },
-  not_invoice: { color: '#d63031', bg: '#d6303120', icon: 'close-circle',          label: 'Kein Rechnungsbeleg' },
-  uncertain:   { color: '#fdcb6e', bg: '#fdcb6e20', icon: 'help-circle',           label: 'Unsicher' },
+  pending:     { color: '#636e72', bg: '#636e7220', icon: 'time-outline',      label: 'Ausstehend' },
+  checking:    { color: '#fdcb6e', bg: '#fdcb6e20', icon: 'hourglass-outline', label: 'KI prüft...' },
+  invoice:     { color: '#00b894', bg: '#00b89420', icon: 'checkmark-circle',  label: 'Rechnung' },
+  not_invoice: { color: '#d63031', bg: '#d6303120', icon: 'close-circle',      label: 'Kein Beleg' },
+  uncertain:   { color: '#fdcb6e', bg: '#fdcb6e20', icon: 'help-circle',       label: 'Unsicher' },
 };
 
-function formatDate(dateStr: string) {
-  try {
-    const d = new Date(dateStr);
-    return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-  } catch { return dateStr; }
+function fmtDate(s: string) {
+  try { return new Date(s).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }); }
+  catch { return s; }
 }
-
-function formatBytes(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+function fmtBytes(b: number) {
+  if (b < 1024) return `${b} B`;
+  if (b < 1048576) return `${(b / 1024).toFixed(0)} KB`;
+  return `${(b / 1048576).toFixed(1)} MB`;
 }
 
 export default function EmailInboxScreen() {
   const { token } = useAuthStore();
   const headers = { Authorization: `Bearer ${token}` };
-  const isDesktop = Platform.OS === 'web' && SCREEN_WIDTH > 900;
 
   const [emails, setEmails] = useState<EmailItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [polling, setPolling] = useState(false);
-  const [filter, setFilter] = useState<string>('all');
+  const [showArchived, setShowArchived] = useState(false);
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [selectMode, setSelectMode] = useState(false);
+  const [batchLoading, setBatchLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+
+  // Sender rules
+  const [rules, setRules] = useState<SenderRule[]>([]);
+  const [showRulesModal, setShowRulesModal] = useState(false);
+  const [newPattern, setNewPattern] = useState('');
+  const [newLabel, setNewLabel] = useState('');
+  const [newMatchType, setNewMatchType] = useState('domain');
+  const [savingRule, setSavingRule] = useState(false);
 
   const showToast = (type: 'success' | 'error', msg: string) => {
     setToast({ type, msg });
@@ -81,18 +76,25 @@ export default function EmailInboxScreen() {
   const loadEmails = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const params = filter !== 'all' ? { status_filter: filter } : {};
+      const params: any = { show_archived: showArchived };
+      if (statusFilter !== 'all') params.status_filter = statusFilter;
       const { data } = await axios.get<EmailItem[]>(`${BACKEND_URL}/api/email-inbox`, { headers, params });
       setEmails(data);
-    } catch (e) {
-      showToast('error', 'Posteingang konnte nicht geladen werden');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [filter, token]);
+    } catch { showToast('error', 'Posteingang konnte nicht geladen werden'); }
+    finally { setLoading(false); setRefreshing(false); }
+  }, [showArchived, statusFilter, token]);
 
-  useFocusEffect(useCallback(() => { loadEmails(); }, [loadEmails]));
+  const loadRules = useCallback(async () => {
+    try {
+      const { data } = await axios.get<SenderRule[]>(`${BACKEND_URL}/api/email-inbox/sender-rules`, { headers });
+      setRules(data);
+    } catch {}
+  }, [token]);
+
+  useFocusEffect(useCallback(() => {
+    loadEmails();
+    loadRules();
+  }, [loadEmails, loadRules]));
 
   const onRefresh = () => { setRefreshing(true); loadEmails(true); };
 
@@ -102,11 +104,49 @@ export default function EmailInboxScreen() {
       const { data } = await axios.post(`${BACKEND_URL}/api/email-inbox/poll`, null, { headers });
       showToast('success', data.message);
       await loadEmails(true);
-    } catch {
-      showToast('error', 'Abruf fehlgeschlagen');
-    } finally {
-      setPolling(false);
-    }
+    } catch { showToast('error', 'Abruf fehlgeschlagen'); }
+    finally { setPolling(false); }
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    const importable = emails.filter(e => !e.imported && (e.ai_status === 'invoice' || e.ai_status === 'uncertain'));
+    if (selected.size === importable.length) setSelected(new Set());
+    else setSelected(new Set(importable.map(e => e.id)));
+  };
+
+  const handleBatchImport = async () => {
+    if (selected.size === 0) return;
+    setBatchLoading(true);
+    try {
+      const { data } = await axios.post(
+        `${BACKEND_URL}/api/email-inbox/batch-import`,
+        Array.from(selected),
+        { headers, params: {} }
+      );
+      showToast('success', `${data.success_count} von ${data.total} erfolgreich importiert`);
+      setSelected(new Set());
+      setSelectMode(false);
+      await loadEmails(true);
+    } catch { showToast('error', 'Stapelimport fehlgeschlagen'); }
+    finally { setBatchLoading(false); }
+  };
+
+  const handleImport = async (itemId: string) => {
+    setActionLoading(`import_${itemId}`);
+    try {
+      await axios.post(`${BACKEND_URL}/api/email-inbox/${itemId}/import`, null, { headers });
+      showToast('success', 'Rechnung importiert und archiviert');
+      await loadEmails(true);
+    } catch (e: any) { showToast('error', e.response?.data?.detail || 'Import fehlgeschlagen'); }
+    finally { setActionLoading(null); }
   };
 
   const handleAiCheck = async (itemId: string) => {
@@ -114,42 +154,47 @@ export default function EmailInboxScreen() {
     try {
       await axios.post(`${BACKEND_URL}/api/email-inbox/${itemId}/ai-check`, null, { headers });
       showToast('success', 'KI-Prüfung gestartet');
-      // Poll for result
       setTimeout(() => loadEmails(true), 4000);
       setTimeout(() => loadEmails(true), 9000);
-    } catch {
-      showToast('error', 'KI-Prüfung fehlgeschlagen');
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const handleImport = async (itemId: string) => {
-    setActionLoading(`import_${itemId}`);
-    try {
-      const { data } = await axios.post(`${BACKEND_URL}/api/email-inbox/${itemId}/import`, null, { headers });
-      showToast('success', `Rechnung erfolgreich importiert`);
-      await loadEmails(true);
-    } catch (e: any) {
-      showToast('error', e.response?.data?.detail || 'Import fehlgeschlagen');
-    } finally {
-      setActionLoading(null);
-    }
+    } catch { showToast('error', 'KI-Prüfung fehlgeschlagen'); }
+    finally { setActionLoading(null); }
   };
 
   const handleDelete = async (itemId: string) => {
     setActionLoading(`del_${itemId}`);
     try {
       await axios.delete(`${BACKEND_URL}/api/email-inbox/${itemId}`, { headers });
-      setEmails((prev) => prev.filter((e) => e.id !== itemId));
-    } catch {
-      showToast('error', 'Löschen fehlgeschlagen');
-    } finally {
-      setActionLoading(null);
-    }
+      setEmails(prev => prev.filter(e => e.id !== itemId));
+    } catch { showToast('error', 'Löschen fehlgeschlagen'); }
+    finally { setActionLoading(null); }
   };
 
-  const FILTERS = [
+  const handleAddRule = async () => {
+    if (!newPattern.trim()) return;
+    setSavingRule(true);
+    try {
+      await axios.post(`${BACKEND_URL}/api/email-inbox/sender-rules`, null, {
+        headers,
+        params: { pattern: newPattern.trim(), match_type: newMatchType, label: newLabel.trim(), action: 'trusted' }
+      });
+      setNewPattern(''); setNewLabel('');
+      await loadRules();
+      showToast('success', 'Absenderregel hinzugefügt');
+    } catch { showToast('error', 'Fehler beim Speichern'); }
+    finally { setSavingRule(false); }
+  };
+
+  const handleDeleteRule = async (ruleId: string) => {
+    try {
+      await axios.delete(`${BACKEND_URL}/api/email-inbox/sender-rules/${ruleId}`, { headers });
+      setRules(prev => prev.filter(r => r.id !== ruleId));
+    } catch { showToast('error', 'Fehler beim Löschen'); }
+  };
+
+  const importableSelected = emails.filter(e => selected.has(e.id) && !e.imported);
+  const totalImportable = emails.filter(e => !e.imported && (e.ai_status === 'invoice' || e.ai_status === 'uncertain'));
+
+  const STATUS_FILTERS = [
     { key: 'all', label: 'Alle' },
     { key: 'invoice', label: '✅ Rechnung' },
     { key: 'uncertain', label: '⚠️ Unsicher' },
@@ -157,122 +202,111 @@ export default function EmailInboxScreen() {
     { key: 'not_invoice', label: '❌ Kein Beleg' },
   ];
 
-  const renderEmailCard = (item: EmailItem) => {
+  const renderCard = (item: EmailItem) => {
     const badge = AI_BADGE[item.ai_status] || AI_BADGE.pending;
+    const isSelected = selected.has(item.id);
     const isImporting = actionLoading === `import_${item.id}`;
     const isChecking = actionLoading === `ai_${item.id}`;
     const isDeleting = actionLoading === `del_${item.id}`;
 
     return (
-      <View key={item.id} style={[styles.card, item.imported && styles.cardImported]}>
-        {/* Header row */}
-        <View style={styles.cardHeader}>
-          <View style={styles.cardHeaderLeft}>
-            <View style={[styles.aiBadge, { backgroundColor: badge.bg }]}>
-              <Ionicons name={badge.icon as any} size={13} color={badge.color} />
-              <Text style={[styles.aiBadgeText, { color: badge.color }]}>{badge.label}</Text>
-              {item.ai_confidence > 0 && (
-                <Text style={[styles.aiConf, { color: badge.color }]}>
-                  {Math.round(item.ai_confidence * 100)}%
-                </Text>
+      <TouchableOpacity
+        key={item.id}
+        style={[styles.card, isSelected && styles.cardSelected, item.imported && !showArchived && styles.cardFaded]}
+        onPress={selectMode ? () => toggleSelect(item.id) : undefined}
+        activeOpacity={selectMode ? 0.7 : 1}
+      >
+        <View style={styles.cardRow}>
+          {/* Checkbox */}
+          {selectMode && (
+            <TouchableOpacity style={styles.checkbox} onPress={() => toggleSelect(item.id)}>
+              <Ionicons
+                name={isSelected ? 'checkbox' : 'square-outline'}
+                size={22}
+                color={isSelected ? '#6c5ce7' : '#636e72'}
+              />
+            </TouchableOpacity>
+          )}
+
+          <View style={{ flex: 1 }}>
+            {/* Header */}
+            <View style={styles.cardHeader}>
+              <View style={[styles.aiBadge, { backgroundColor: badge.bg }]}>
+                <Ionicons name={badge.icon as any} size={12} color={badge.color} />
+                <Text style={[styles.aiBadgeText, { color: badge.color }]}>{badge.label}</Text>
+                {item.ai_confidence > 0 && (
+                  <Text style={[styles.aiConf, { color: badge.color }]}>{Math.round(item.ai_confidence * 100)}%</Text>
+                )}
+              </View>
+              {item.imported && (
+                <View style={styles.importedBadge}>
+                  <Ionicons name="archive" size={11} color="#6c5ce7" />
+                  <Text style={styles.importedText}>Archiviert</Text>
+                </View>
+              )}
+              <Text style={styles.dateText}>{fmtDate(item.date)}</Text>
+            </View>
+
+            {/* Subject + Sender */}
+            <Text style={styles.subject} numberOfLines={1}>{item.subject}</Text>
+            <Text style={styles.sender} numberOfLines={1}>📤 {item.sender}</Text>
+
+            {/* AI Details */}
+            {item.ai_details && item.ai_status !== 'not_invoice' && (
+              <View style={styles.aiDetails}>
+                {item.ai_details.vendor_name && <Text style={styles.aiDetailText}>🏢 {item.ai_details.vendor_name}</Text>}
+                {item.ai_details.gross_amount ? (
+                  <Text style={styles.aiDetailText}>
+                    💶 {item.ai_details.gross_amount.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
+                  </Text>
+                ) : null}
+                {item.ai_details.reason && (
+                  <Text style={styles.aiReasonText} numberOfLines={1}>{item.ai_details.reason}</Text>
+                )}
+              </View>
+            )}
+
+            {/* Attachments */}
+            <View style={styles.attachRow}>
+              {item.attachments.slice(0, 3).map((att, i) => (
+                <View key={i} style={styles.attachChip}>
+                  <Ionicons name={att.content_type.includes('pdf') ? 'document-text' : 'image'} size={11} color="#a0a0a0" />
+                  <Text style={styles.attachName} numberOfLines={1}>{att.filename}</Text>
+                  <Text style={styles.attachSize}>{fmtBytes(att.size_bytes)}</Text>
+                </View>
+              ))}
+              {item.attachments.length > 3 && (
+                <Text style={styles.moreAtts}>+{item.attachments.length - 3}</Text>
               )}
             </View>
-            {item.imported && (
-              <View style={styles.importedBadge}>
-                <Ionicons name="checkmark-done" size={12} color="#6c5ce7" />
-                <Text style={styles.importedText}>Importiert</Text>
+
+            {/* Actions */}
+            {!item.imported && !selectMode && (
+              <View style={styles.actions}>
+                {item.ai_status === 'pending' && (
+                  <TouchableOpacity style={styles.btnSec} onPress={() => handleAiCheck(item.id)} disabled={!!actionLoading}>
+                    {isChecking ? <ActivityIndicator size="small" color="#6c5ce7" /> : <Ionicons name="sparkles" size={13} color="#6c5ce7" />}
+                    <Text style={styles.btnSecText}>KI prüfen</Text>
+                  </TouchableOpacity>
+                )}
+                {(item.ai_status === 'invoice' || item.ai_status === 'uncertain') && (
+                  <TouchableOpacity
+                    style={[styles.btnPrimary, isImporting && { opacity: 0.6 }]}
+                    onPress={() => handleImport(item.id)}
+                    disabled={!!actionLoading}
+                  >
+                    {isImporting ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="cloud-download" size={13} color="#fff" />}
+                    <Text style={styles.btnPrimaryText}>{isImporting ? 'Importiert...' : 'Importieren'}</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity style={styles.btnDel} onPress={() => handleDelete(item.id)} disabled={!!actionLoading}>
+                  {isDeleting ? <ActivityIndicator size="small" color="#d63031" /> : <Ionicons name="trash-outline" size={14} color="#d63031" />}
+                </TouchableOpacity>
               </View>
             )}
           </View>
-          <Text style={styles.dateText}>{formatDate(item.date)}</Text>
         </View>
-
-        {/* Subject & Sender */}
-        <Text style={styles.subject} numberOfLines={2}>{item.subject}</Text>
-        <Text style={styles.sender} numberOfLines={1}>Von: {item.sender}</Text>
-
-        {/* AI Details */}
-        {item.ai_details && item.ai_status !== 'not_invoice' && (
-          <View style={styles.aiDetails}>
-            {item.ai_details.document_type && (
-              <Text style={styles.aiDetailText}>📄 {item.ai_details.document_type}</Text>
-            )}
-            {item.ai_details.vendor_name && (
-              <Text style={styles.aiDetailText}>🏢 {item.ai_details.vendor_name}</Text>
-            )}
-            {item.ai_details.gross_amount ? (
-              <Text style={styles.aiDetailText}>
-                💶 {item.ai_details.gross_amount.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
-              </Text>
-            ) : null}
-            {item.ai_details.reason && (
-              <Text style={styles.aiReasonText} numberOfLines={2}>{item.ai_details.reason}</Text>
-            )}
-          </View>
-        )}
-
-        {/* Attachments */}
-        <View style={styles.attachments}>
-          {item.attachments.map((att, i) => (
-            <View key={i} style={styles.attachChip}>
-              <Ionicons
-                name={att.content_type.includes('pdf') ? 'document-text' : 'image'}
-                size={12}
-                color="#a0a0a0"
-              />
-              <Text style={styles.attachName} numberOfLines={1}>{att.filename}</Text>
-              <Text style={styles.attachSize}>{formatBytes(att.size_bytes)}</Text>
-            </View>
-          ))}
-        </View>
-
-        {/* Actions */}
-        {!item.imported && (
-          <View style={styles.actions}>
-            {item.ai_status === 'pending' && (
-              <TouchableOpacity
-                style={styles.actionBtnSecondary}
-                onPress={() => handleAiCheck(item.id)}
-                disabled={!!actionLoading}
-              >
-                {isChecking
-                  ? <ActivityIndicator size="small" color="#6c5ce7" />
-                  : <Ionicons name="sparkles" size={14} color="#6c5ce7" />}
-                <Text style={styles.actionBtnSecondaryText}>KI prüfen</Text>
-              </TouchableOpacity>
-            )}
-            {(item.ai_status === 'invoice' || item.ai_status === 'uncertain') && (
-              <TouchableOpacity
-                style={[styles.actionBtnPrimary, isImporting && styles.actionBtnDisabled]}
-                onPress={() => handleImport(item.id)}
-                disabled={!!actionLoading}
-              >
-                {isImporting
-                  ? <ActivityIndicator size="small" color="#fff" />
-                  : <Ionicons name="cloud-download" size={14} color="#fff" />}
-                <Text style={styles.actionBtnPrimaryText}>
-                  {isImporting ? 'Importiert...' : 'Als Rechnung importieren'}
-                </Text>
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity
-              style={styles.actionBtnDelete}
-              onPress={() => handleDelete(item.id)}
-              disabled={!!actionLoading}
-            >
-              {isDeleting
-                ? <ActivityIndicator size="small" color="#d63031" />
-                : <Ionicons name="trash-outline" size={14} color="#d63031" />}
-            </TouchableOpacity>
-          </View>
-        )}
-        {item.imported && (
-          <View style={styles.importedInfo}>
-            <Ionicons name="checkmark-circle" size={14} color="#6c5ce7" />
-            <Text style={styles.importedInfoText}>Rechnung wurde erfolgreich importiert</Text>
-          </View>
-        )}
-      </View>
+      </TouchableOpacity>
     );
   };
 
@@ -289,27 +323,80 @@ export default function EmailInboxScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.headerTitle}>📧 E-Mail Posteingang</Text>
-          <Text style={styles.headerSub}>{emails.length} E-Mail(s) mit Anhängen</Text>
+          <Text style={styles.headerTitle}>📧 E-Mail Eingang</Text>
+          <Text style={styles.headerSub}>
+            {emails.length} E-Mail(s) · {rules.length} Absenderregel(n)
+          </Text>
         </View>
-        <TouchableOpacity style={[styles.pollBtn, polling && styles.pollBtnDisabled]} onPress={handlePoll} disabled={polling}>
-          {polling ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="refresh" size={18} color="#fff" />}
-          <Text style={styles.pollBtnText}>{polling ? 'Abruf...' : 'Jetzt abrufen'}</Text>
-        </TouchableOpacity>
+        <View style={styles.headerBtns}>
+          <TouchableOpacity style={styles.iconBtn} onPress={() => setShowRulesModal(true)}>
+            <Ionicons name="shield-checkmark-outline" size={18} color="#a0a0a0" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.iconBtn, selectMode && { backgroundColor: '#6c5ce720' }]}
+            onPress={() => { setSelectMode(!selectMode); setSelected(new Set()); }}
+          >
+            <Ionicons name="checkbox-outline" size={18} color={selectMode ? '#6c5ce7' : '#a0a0a0'} />
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.pollBtn, polling && { opacity: 0.6 }]} onPress={handlePoll} disabled={polling}>
+            {polling ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="refresh" size={16} color="#fff" />}
+            <Text style={styles.pollBtnText}>{polling ? 'Abruf...' : 'Abrufen'}</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
-      {/* Filter chips */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll} contentContainerStyle={styles.filterContainer}>
-        {FILTERS.map((f) => (
-          <TouchableOpacity
-            key={f.key}
-            style={[styles.filterChip, filter === f.key && styles.filterChipActive]}
-            onPress={() => setFilter(f.key)}
-          >
-            <Text style={[styles.filterText, filter === f.key && styles.filterTextActive]}>{f.label}</Text>
+      {/* Batch toolbar */}
+      {selectMode && (
+        <View style={styles.batchBar}>
+          <TouchableOpacity onPress={toggleSelectAll}>
+            <Text style={styles.batchSelectAll}>
+              {selected.size === totalImportable.length ? 'Alle abwählen' : `Alle wählen (${totalImportable.length})`}
+            </Text>
           </TouchableOpacity>
-        ))}
-      </ScrollView>
+          <View style={{ flex: 1 }} />
+          {selected.size > 0 && (
+            <TouchableOpacity
+              style={[styles.batchImportBtn, batchLoading && { opacity: 0.6 }]}
+              onPress={handleBatchImport}
+              disabled={batchLoading}
+            >
+              {batchLoading
+                ? <ActivityIndicator size="small" color="#fff" />
+                : <Ionicons name="cloud-download" size={14} color="#fff" />}
+              <Text style={styles.batchImportText}>
+                {batchLoading ? 'Importiert...' : `${selected.size} importieren`}
+              </Text>
+            </TouchableOpacity>
+          )}
+          {selected.size === 0 && <Text style={styles.batchHint}>E-Mails antippen zum Auswählen</Text>}
+        </View>
+      )}
+
+      {/* Archive toggle + Status filters */}
+      <View style={styles.filterBar}>
+        <TouchableOpacity
+          style={[styles.archiveToggle, showArchived && styles.archiveToggleActive]}
+          onPress={() => { setShowArchived(!showArchived); setSelected(new Set()); }}
+        >
+          <Ionicons name={showArchived ? 'archive' : 'mail'} size={14} color={showArchived ? '#6c5ce7' : '#636e72'} />
+          <Text style={[styles.archiveToggleText, showArchived && { color: '#6c5ce7' }]}>
+            {showArchived ? 'Archiv' : 'Eingang'}
+          </Text>
+        </TouchableOpacity>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flex: 1 }}>
+          <View style={styles.filterChips}>
+            {STATUS_FILTERS.map(f => (
+              <TouchableOpacity
+                key={f.key}
+                style={[styles.chip, statusFilter === f.key && styles.chipActive]}
+                onPress={() => setStatusFilter(f.key)}
+              >
+                <Text style={[styles.chipText, statusFilter === f.key && styles.chipTextActive]}>{f.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </ScrollView>
+      </View>
 
       {/* Content */}
       {loading ? (
@@ -320,28 +407,95 @@ export default function EmailInboxScreen() {
       ) : emails.length === 0 ? (
         <View style={styles.centered}>
           <Ionicons name="mail-open-outline" size={56} color="#2d2d44" />
-          <Text style={styles.emptyTitle}>Kein Posteingang</Text>
+          <Text style={styles.emptyTitle}>{showArchived ? 'Archiv leer' : 'Kein Posteingang'}</Text>
           <Text style={styles.emptyText}>
-            {filter !== 'all'
-              ? 'Keine E-Mails für diesen Filter gefunden.'
-              : 'IMAP konfigurieren und auf "Jetzt abrufen" klicken.'}
+            {showArchived
+              ? 'Noch keine importierten E-Mails im Archiv.'
+              : 'IMAP konfigurieren (Einstellungen → E-Mail) und auf "Abrufen" klicken.'}
           </Text>
-          {filter === 'all' && (
-            <TouchableOpacity style={styles.settingsHint} onPress={handlePoll}>
-              <Ionicons name="settings-outline" size={14} color="#6c5ce7" />
-              <Text style={styles.settingsHintText}>IMAP-Einstellungen → Einstellungen → E-Mail</Text>
-            </TouchableOpacity>
-          )}
         </View>
       ) : (
         <ScrollView
           style={styles.list}
-          contentContainerStyle={[styles.listContent, isDesktop && styles.desktopListContent]}
+          contentContainerStyle={[styles.listContent, IS_DESKTOP && styles.desktopContent]}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#6c5ce7" />}
         >
-          {emails.map(renderEmailCard)}
+          {emails.map(renderCard)}
         </ScrollView>
       )}
+
+      {/* Sender Rules Modal */}
+      <Modal visible={showRulesModal} transparent animationType="slide" onRequestClose={() => setShowRulesModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>🛡️ Absender-Regeln</Text>
+              <TouchableOpacity onPress={() => setShowRulesModal(false)}>
+                <Ionicons name="close" size={22} color="#fff" />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.modalHint}>
+              E-Mails von vertrauenswürdigen Absendern werden sofort als Eingangsrechnung erkannt.
+            </Text>
+
+            {/* Add rule */}
+            <View style={styles.ruleForm}>
+              <View style={styles.ruleMatchRow}>
+                {(['domain', 'email', 'contains'] as const).map(mt => (
+                  <TouchableOpacity
+                    key={mt}
+                    style={[styles.matchChip, newMatchType === mt && styles.matchChipActive]}
+                    onPress={() => setNewMatchType(mt)}
+                  >
+                    <Text style={[styles.matchChipText, newMatchType === mt && { color: '#6c5ce7' }]}>
+                      {mt === 'domain' ? '🌐 Domain' : mt === 'email' ? '📧 E-Mail' : '🔍 Enthält'}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <TextInput
+                style={styles.ruleInput}
+                value={newPattern}
+                onChangeText={setNewPattern}
+                placeholder={newMatchType === 'domain' ? 'z.B. bosch.de' : newMatchType === 'email' ? 'z.B. rechnung@lieferant.de' : 'z.B. rechnung'}
+                placeholderTextColor="#636e72"
+                autoCapitalize="none"
+              />
+              <TextInput
+                style={styles.ruleInput}
+                value={newLabel}
+                onChangeText={setNewLabel}
+                placeholder="Bezeichnung (optional, z.B. Bosch GmbH)"
+                placeholderTextColor="#636e72"
+              />
+              <TouchableOpacity style={[styles.addRuleBtn, savingRule && { opacity: 0.6 }]} onPress={handleAddRule} disabled={savingRule}>
+                <Ionicons name="add" size={16} color="#fff" />
+                <Text style={styles.addRuleBtnText}>Regel hinzufügen</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Rules list */}
+            <ScrollView style={{ maxHeight: 300 }}>
+              {rules.length === 0 ? (
+                <Text style={styles.noRulesText}>Noch keine Regeln definiert.</Text>
+              ) : rules.map(rule => (
+                <View key={rule.id} style={styles.ruleItem}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.rulePattern}>{rule.pattern}</Text>
+                    <Text style={styles.ruleMeta}>
+                      {rule.match_type === 'domain' ? '🌐 Domain' : rule.match_type === 'email' ? '📧 E-Mail' : '🔍 Enthält'}
+                      {rule.label ? ` · ${rule.label}` : ''}
+                    </Text>
+                  </View>
+                  <TouchableOpacity onPress={() => handleDeleteRule(rule.id)} style={styles.ruleDelBtn}>
+                    <Ionicons name="trash-outline" size={16} color="#d63031" />
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -349,56 +503,82 @@ export default function EmailInboxScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0f0f1a' },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#1a1a2e', borderBottomWidth: 1, borderBottomColor: '#2d2d44' },
-  headerTitle: { fontSize: 18, fontWeight: 'bold', color: '#fff' },
-  headerSub: { fontSize: 13, color: '#636e72', marginTop: 2 },
-  pollBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#6c5ce7', paddingHorizontal: 14, paddingVertical: 9, borderRadius: 10 },
-  pollBtnDisabled: { opacity: 0.6 },
+  headerTitle: { fontSize: 17, fontWeight: 'bold', color: '#fff' },
+  headerSub: { fontSize: 12, color: '#636e72', marginTop: 2 },
+  headerBtns: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  iconBtn: { padding: 8, borderRadius: 8, backgroundColor: '#2d2d44' },
+  pollBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#6c5ce7', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 },
   pollBtnText: { color: '#fff', fontWeight: '600', fontSize: 13 },
-  filterScroll: { maxHeight: 50, backgroundColor: '#1a1a2e' },
-  filterContainer: { paddingHorizontal: 16, paddingVertical: 10, gap: 8, flexDirection: 'row' },
-  filterChip: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: '#2d2d44', backgroundColor: '#0f0f1a' },
-  filterChipActive: { borderColor: '#6c5ce7', backgroundColor: '#6c5ce720' },
-  filterText: { fontSize: 13, color: '#636e72' },
-  filterTextActive: { color: '#6c5ce7', fontWeight: '600' },
+  batchBar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, backgroundColor: '#1a1a2e', borderBottomWidth: 1, borderBottomColor: '#6c5ce740', gap: 10 },
+  batchSelectAll: { fontSize: 13, color: '#6c5ce7', fontWeight: '600' },
+  batchImportBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#00b894', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8 },
+  batchImportText: { color: '#fff', fontWeight: '700', fontSize: 13 },
+  batchHint: { fontSize: 12, color: '#636e72' },
+  filterBar: { flexDirection: 'row', alignItems: 'center', paddingLeft: 12, paddingVertical: 8, backgroundColor: '#1a1a2e', borderBottomWidth: 1, borderBottomColor: '#2d2d44', gap: 8 },
+  archiveToggle: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: '#2d2d44', backgroundColor: '#0f0f1a' },
+  archiveToggleActive: { borderColor: '#6c5ce7', backgroundColor: '#6c5ce720' },
+  archiveToggleText: { fontSize: 12, color: '#636e72', fontWeight: '600' },
+  filterChips: { flexDirection: 'row', gap: 6, paddingRight: 12 },
+  chip: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 14, borderWidth: 1, borderColor: '#2d2d44', backgroundColor: '#0f0f1a' },
+  chipActive: { borderColor: '#6c5ce7', backgroundColor: '#6c5ce720' },
+  chipText: { fontSize: 12, color: '#636e72' },
+  chipTextActive: { color: '#6c5ce7', fontWeight: '600' },
   list: { flex: 1 },
-  listContent: { padding: 16, gap: 12 },
-  desktopListContent: { maxWidth: 900, alignSelf: 'center', width: '100%' },
-  card: { backgroundColor: '#1a1a2e', borderRadius: 14, padding: 16, borderWidth: 1, borderColor: '#2d2d44' },
-  cardImported: { borderColor: '#6c5ce740', opacity: 0.85 },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 },
-  cardHeaderLeft: { flexDirection: 'row', gap: 8, flex: 1, flexWrap: 'wrap' },
-  aiBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20 },
-  aiBadgeText: { fontSize: 12, fontWeight: '600' },
-  aiConf: { fontSize: 11, opacity: 0.8 },
-  importedBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#6c5ce720', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 20 },
-  importedText: { fontSize: 11, color: '#6c5ce7', fontWeight: '600' },
-  dateText: { fontSize: 11, color: '#636e72', marginLeft: 8 },
-  subject: { fontSize: 15, fontWeight: '600', color: '#fff', marginBottom: 4 },
-  sender: { fontSize: 12, color: '#a0a0a0', marginBottom: 10 },
-  aiDetails: { backgroundColor: '#0f0f1a', borderRadius: 8, padding: 10, marginBottom: 10, gap: 4 },
-  aiDetailText: { fontSize: 13, color: '#dfe6e9' },
-  aiReasonText: { fontSize: 12, color: '#a0a0a0', marginTop: 4, fontStyle: 'italic' },
-  attachments: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 },
-  attachChip: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#0f0f1a', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1, borderColor: '#2d2d44', maxWidth: 220 },
-  attachName: { fontSize: 12, color: '#a0a0a0', flex: 1 },
-  attachSize: { fontSize: 11, color: '#636e72' },
-  actions: { flexDirection: 'row', gap: 8 },
-  actionBtnPrimary: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#00b894', borderRadius: 10, paddingVertical: 10 },
-  actionBtnDisabled: { opacity: 0.6 },
-  actionBtnPrimaryText: { color: '#fff', fontWeight: '700', fontSize: 13 },
-  actionBtnSecondary: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#6c5ce720', borderRadius: 10, paddingVertical: 10, borderWidth: 1, borderColor: '#6c5ce7' },
-  actionBtnSecondaryText: { color: '#6c5ce7', fontWeight: '600', fontSize: 13 },
-  actionBtnDelete: { width: 40, alignItems: 'center', justifyContent: 'center', backgroundColor: '#d6303115', borderRadius: 10 },
-  importedInfo: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#2d2d44' },
-  importedInfoText: { fontSize: 13, color: '#6c5ce7' },
+  listContent: { padding: 12, gap: 10 },
+  desktopContent: { maxWidth: 860, alignSelf: 'center', width: '100%' },
+  card: { backgroundColor: '#1a1a2e', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#2d2d44' },
+  cardSelected: { borderColor: '#6c5ce7', backgroundColor: '#6c5ce710' },
+  cardFaded: { opacity: 0.7 },
+  cardRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  checkbox: { paddingTop: 2 },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6, flexWrap: 'wrap' },
+  aiBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 },
+  aiBadgeText: { fontSize: 11, fontWeight: '600' },
+  aiConf: { fontSize: 10, opacity: 0.8 },
+  importedBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#6c5ce720', paddingHorizontal: 7, paddingVertical: 3, borderRadius: 10 },
+  importedText: { fontSize: 10, color: '#6c5ce7', fontWeight: '600' },
+  dateText: { marginLeft: 'auto', fontSize: 11, color: '#636e72' },
+  subject: { fontSize: 14, fontWeight: '600', color: '#fff', marginBottom: 3 },
+  sender: { fontSize: 12, color: '#a0a0a0', marginBottom: 8 },
+  aiDetails: { backgroundColor: '#0f0f1a', borderRadius: 8, padding: 9, marginBottom: 8, gap: 3 },
+  aiDetailText: { fontSize: 12, color: '#dfe6e9' },
+  aiReasonText: { fontSize: 11, color: '#a0a0a0', fontStyle: 'italic' },
+  attachRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginBottom: 10 },
+  attachChip: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#0f0f1a', borderRadius: 7, paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: '#2d2d44', maxWidth: 200 },
+  attachName: { fontSize: 11, color: '#a0a0a0', flex: 1 },
+  attachSize: { fontSize: 10, color: '#636e72' },
+  moreAtts: { fontSize: 11, color: '#636e72', alignSelf: 'center' },
+  actions: { flexDirection: 'row', gap: 7 },
+  btnPrimary: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, backgroundColor: '#00b894', borderRadius: 8, paddingVertical: 9 },
+  btnPrimaryText: { color: '#fff', fontWeight: '700', fontSize: 12 },
+  btnSec: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, backgroundColor: '#6c5ce720', borderRadius: 8, paddingVertical: 9, borderWidth: 1, borderColor: '#6c5ce7' },
+  btnSecText: { color: '#6c5ce7', fontWeight: '600', fontSize: 12 },
+  btnDel: { width: 38, alignItems: 'center', justifyContent: 'center', backgroundColor: '#d6303115', borderRadius: 8 },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32, gap: 12 },
   loadingText: { color: '#636e72', fontSize: 14, marginTop: 8 },
   emptyTitle: { fontSize: 18, fontWeight: 'bold', color: '#fff' },
   emptyText: { fontSize: 14, color: '#636e72', textAlign: 'center', lineHeight: 20 },
-  settingsHint: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8, padding: 12, backgroundColor: '#6c5ce720', borderRadius: 10 },
-  settingsHintText: { fontSize: 13, color: '#6c5ce7' },
-  toast: { position: 'absolute', top: 60, left: 16, right: 16, zIndex: 999, flexDirection: 'row', alignItems: 'center', gap: 8, padding: 14, borderRadius: 12 },
+  toast: { position: 'absolute', top: 60, left: 16, right: 16, zIndex: 999, flexDirection: 'row', alignItems: 'center', gap: 8, padding: 13, borderRadius: 12 },
   toastSuccess: { backgroundColor: '#00b894' },
   toastError: { backgroundColor: '#d63031' },
   toastText: { color: '#fff', fontWeight: '600', fontSize: 14, flex: 1 },
+  // Modal
+  modalOverlay: { flex: 1, backgroundColor: '#000000aa', justifyContent: 'flex-end' },
+  modalBox: { backgroundColor: '#1a1a2e', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, maxHeight: '85%' },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  modalTitle: { fontSize: 17, fontWeight: 'bold', color: '#fff' },
+  modalHint: { fontSize: 13, color: '#636e72', marginBottom: 16, lineHeight: 18 },
+  ruleForm: { gap: 8, marginBottom: 16 },
+  ruleMatchRow: { flexDirection: 'row', gap: 8 },
+  matchChip: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: '#2d2d44', backgroundColor: '#0f0f1a' },
+  matchChipActive: { borderColor: '#6c5ce7', backgroundColor: '#6c5ce715' },
+  matchChipText: { fontSize: 12, color: '#636e72', fontWeight: '500' },
+  ruleInput: { backgroundColor: '#0f0f1a', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 11, color: '#fff', fontSize: 14, borderWidth: 1, borderColor: '#2d2d44' },
+  addRuleBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#6c5ce7', borderRadius: 10, paddingVertical: 12 },
+  addRuleBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  noRulesText: { color: '#636e72', fontSize: 13, textAlign: 'center', paddingVertical: 12 },
+  ruleItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#0f0f1a', borderRadius: 10, padding: 12, marginBottom: 8 },
+  rulePattern: { fontSize: 14, color: '#fff', fontWeight: '600', marginBottom: 3 },
+  ruleMeta: { fontSize: 12, color: '#636e72' },
+  ruleDelBtn: { padding: 8 },
 });
