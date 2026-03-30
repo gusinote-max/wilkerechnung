@@ -1869,14 +1869,14 @@ async def get_cost_centers(include_inactive: bool = False):
     return [CostCenter(**c) for c in centers]
 
 @api_router.post("/cost-centers", response_model=CostCenter)
-async def create_cost_center(center: CostCenter):
-    """Create cost center"""
+async def create_cost_center(center: CostCenter, current_user: dict = Depends(require_admin())):
+    """Create cost center (Admin only)"""
     await db.cost_centers.insert_one(center.model_dump())
     return center
 
 @api_router.put("/cost-centers/{center_id}", response_model=CostCenter)
-async def update_cost_center(center_id: str, update: CostCenterUpdate):
-    """Update cost center"""
+async def update_cost_center(center_id: str, update: CostCenterUpdate, current_user: dict = Depends(require_admin())):
+    """Update cost center (Admin only)"""
     update_data = update.model_dump(exclude_none=True)
     if update_data:
         await db.cost_centers.update_one({"id": center_id}, {"$set": update_data})
@@ -1886,8 +1886,8 @@ async def update_cost_center(center_id: str, update: CostCenterUpdate):
     return CostCenter(**updated)
 
 @api_router.delete("/cost-centers/{center_id}")
-async def delete_cost_center(center_id: str):
-    """Delete cost center"""
+async def delete_cost_center(center_id: str, current_user: dict = Depends(require_admin())):
+    """Delete cost center (Admin only)"""
     result = await db.cost_centers.delete_one({"id": center_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Kostenstelle nicht gefunden")

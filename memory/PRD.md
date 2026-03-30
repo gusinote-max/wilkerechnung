@@ -46,6 +46,11 @@ Der Benutzer baut eine "Candis-Kopie" (Candis-Klon), ein KI-gestütztes Rechnung
 
 ## CHANGELOG
 
+### 2026-03-30 – P0 Features: Kostenstellen & Kontierungspflicht
+- **Kostenstellen CRUD**: Backend: `CostCenterUpdate` Model, `GET /api/cost-centers?include_inactive=true`, `PUT /api/cost-centers/{id}` akzeptiert JSON-Body, Auth Guards (require_admin) auf POST/PUT/DELETE. Frontend: `KostenstellenSection.tsx` in `settings.tsx` eingebunden, `apiService.updateCostCenter()` hinzugefügt.
+- **Kontierungspflicht**: `POST /api/invoices/{id}/approve` gibt 422 zurück wenn kein `account_number` gesetzt. Frontend `InvoiceActions.tsx` zeigt Warnbanner und deaktivierten Button.
+- **Getestet**: 100% (17/17 Backend + 4/4 Frontend flows)
+
 ### 2026-03-30 – E-Mail IMAP Rechnungsimport (Neues Feature)
 - **Backend**: `ImapSettings` + `EmailInboxItem` Modelle, APScheduler für automatisches Polling
 - **Endpoints**: `/api/imap-settings`, `/api/email-inbox`, `/api/email-inbox/poll`, `/api/email-inbox/{id}/ai-check`, `/api/email-inbox/{id}/import`
