@@ -1855,10 +1855,17 @@ async def create_account(account: Account):
 
 # ===== COST CENTERS =====
 
+class CostCenterUpdate(BaseModel):
+    number: Optional[str] = None
+    name: Optional[str] = None
+    description: Optional[str] = None
+    active: Optional[bool] = None
+
 @api_router.get("/cost-centers", response_model=List[CostCenter])
-async def get_cost_centers():
-    """Get all cost centers"""
-    centers = await db.cost_centers.find({"active": True}).to_list(1000)
+async def get_cost_centers(include_inactive: bool = False):
+    """Get cost centers. Pass include_inactive=true to return all (for admin settings)."""
+    query = {} if include_inactive else {"active": True}
+    centers = await db.cost_centers.find(query).to_list(1000)
     return [CostCenter(**c) for c in centers]
 
 @api_router.post("/cost-centers", response_model=CostCenter)
@@ -1868,19 +1875,11 @@ async def create_cost_center(center: CostCenter):
     return center
 
 @api_router.put("/cost-centers/{center_id}", response_model=CostCenter)
-async def update_cost_center(center_id: str, name: str = None, description: str = None, active: bool = None):
+async def update_cost_center(center_id: str, update: CostCenterUpdate):
     """Update cost center"""
-    update_data = {}
-    if name is not None:
-        update_data["name"] = name
-    if description is not None:
-        update_data["description"] = description
-    if active is not None:
-        update_data["active"] = active
-    
+    update_data = update.model_dump(exclude_none=True)
     if update_data:
         await db.cost_centers.update_one({"id": center_id}, {"$set": update_data})
-    
     updated = await db.cost_centers.find_one({"id": center_id})
     if not updated:
         raise HTTPException(status_code=404, detail="Kostenstelle nicht gefunden")

@@ -29,6 +29,7 @@ import EmailSettingsSection from '../../src/components/settings/EmailSettingsSec
 import ImapSettingsSection from '../../src/components/settings/ImapSettingsSection';
 import WorkflowSettingsSection from '../../src/components/settings/WorkflowSettingsSection';
 import WebhookSettingsSection from '../../src/components/settings/WebhookSettingsSection';
+import KostenstellenSection from '../../src/components/settings/KostenstellenSection';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
 
@@ -217,6 +218,10 @@ export default function SettingsScreen() {
 
           {isAdmin && (
             <WorkflowSettingsSection isDesktop={isDesktop} showToast={showToast} />
+          )}
+
+          {isAdmin && (
+            <KostenstellenSection isDesktop={isDesktop} showToast={showToast} />
           )}
 
           {isAdmin && (

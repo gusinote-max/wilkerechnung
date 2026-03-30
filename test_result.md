@@ -549,11 +549,56 @@ frontend:
         agent: "main"
         comment: "User list with role badges (Admin/Manager/Buchhalter/Nur Lesen), edit modal for role assignment, user activate/deactivate, user delete with confirmation modal. Only visible for admin users. Own user cannot be edited."
 
+  - task: "Kostenstellen (Cost Centers) API - GET/POST/PUT/DELETE"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Cost center CRUD endpoints: GET /api/cost-centers?include_inactive=true returns all including inactive, POST /api/cost-centers creates, PUT /api/cost-centers/{id} accepts JSON body with {number, name, description, active}, DELETE /api/cost-centers/{id} removes. Backend updated to use CostCenterUpdate Pydantic model for PUT requests."
+
+  - task: "Approval Requires Kontierung (account_number)"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "POST /api/invoices/{id}/approve now returns 422 if account_number is not set in invoice.data. Backend check added: if not account_number or not str(account_number).strip() -> raise HTTPException 422 'Kontierung fehlt: Bitte zuerst ein Sachkonto hinterlegen'"
+
+frontend:
+  - task: "KostenstellenSection in Settings UI"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/app/(tabs)/settings.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "KostenstellenSection.tsx now imported and rendered in settings.tsx for Admin users. Supports create, edit (toggle active, update name/number/description), and delete. Uses apiService.getCostCenters(true) to fetch all including inactive."
+
+  - task: "InvoiceActions - Approve Button disabled without Kontierung"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/components/invoice/InvoiceActions.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "InvoiceActions.tsx: approve button disabled when invoice.data.account_number is empty. Shows warning banner 'Genehmigung gesperrt - bitte zuerst Kontierung (Sachkonto) hinterlegen'. Button shows lock icon and text 'Kontierung fehlt' when disabled."
+
 metadata:
-  created_by: "main_agent"
-  version: "1.0"
-  test_sequence: 3
-  run_ui: false
 
 test_plan:
   current_focus: []
@@ -574,5 +619,5 @@ agent_communication:
     message: "✅ REVIEW REQUEST TESTING COMPLETE: All 3 specific test scenarios passed (100% success rate). Test 1: Admin login successful, new user 'Max Mustermann' created with manager role, user verified in user list. Test 2: Invoice deletion working correctly - invoice deleted and returns 'Rechnung gelöscht', verification shows 404 as expected. Test 3: New user login successful with correct manager role returned. All authentication flows, user management, and invoice operations working as specified in review request."
   - agent: "testing"
     message: "✅ DATEV & BANKING INTEGRATION TESTING COMPLETE: All 17 integration tests passed (100% success rate). DATEV Integration: Configuration endpoints (GET/PUT /api/settings/datev), connection testing (POST /api/datev/test-connection), invoice upload (POST /api/datev/upload/{id}), status checking (GET /api/datev/status/{id}) - all working in simulation mode with proper SIM-DATEV- document IDs and duplicate upload prevention. Banking Integration: Configuration endpoints (GET/PUT /api/settings/banking), payment initiation (POST /api/payments/initiate/{id}), status checking (GET /api/payments/status/{id}), payment listing (GET /api/payments) - all working in simulation mode with proper SIM-PAY- transaction IDs and duplicate payment prevention. Fixed router registration issue where DATEV/Banking endpoints were defined after app.include_router() call. All integration APIs fully functional and ready for production use."
-  - agent: "testing"
-    message: "✅ RBAC TESTING COMPLETE: All 17 role-based access control tests passed (100% success rate). Successfully tested complete RBAC implementation: 1) Setup: Admin login, created Accountant user (buchhalter@test.de) and Viewer user (viewer@test.de), all logins successful. 2) Accountant restrictions: CANNOT approve invoices (403 'Keine Berechtigung'), CANNOT delete invoices (403), CANNOT update settings (403). 3) Accountant permissions: CAN initiate payments (200 with SIM-PAY- transaction ID). 4) Viewer restrictions: CAN view invoices (200), CANNOT approve (403), CANNOT delete (403), CANNOT initiate payments (403). 5) Admin permissions: CAN update settings (200), CAN delete invoices (200). All role-based access controls working correctly as designed. RBAC system fully functional and secure."
+  - agent: "main"
+    message: "NEUE P0-FEATURES IMPLEMENTIERT: 1) Kostenstellen-CRUD (Backend+Frontend): Backend: GET /api/cost-centers?include_inactive=true gibt alle zurück inkl. inaktive, PUT /api/cost-centers/{id} akzeptiert jetzt JSON-Body {number, name, description, active} via CostCenterUpdate Pydantic Model. Frontend: KostenstellenSection.tsx wurde in settings.tsx eingebunden (für Admins sichtbar). apiService.getCostCenters(true) und apiService.updateCostCenter(id, update) wurden zu api.ts hinzugefügt. 2) Kontierungspflicht vor Genehmigung: Backend: POST /api/invoices/{id}/approve prüft ob account_number gesetzt ist, wirft 422 wenn nicht. Frontend InvoiceActions.tsx: Genehmigen-Button disabled wenn keine Kontierung, zeigt Warnung. ADMIN-CREDENTIALS: admin@candis-kopie.de / Admin123!. Bitte testen: A) Cost Center API CRUD, B) Approve-Endpoint ohne account_number (muss 422 zurückgeben), C) Settings-UI zeigt KostenstellenSection. Für UI-Test bitte Web-Preview verwenden."

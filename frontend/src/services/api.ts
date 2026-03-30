@@ -226,13 +226,18 @@ export const apiService = {
   },
 
   // Cost Centers
-  async getCostCenters(): Promise<CostCenter[]> {
-    const response = await api.get('/cost-centers');
+  async getCostCenters(includeInactive = false): Promise<CostCenter[]> {
+    const response = await api.get('/cost-centers', { params: { include_inactive: includeInactive } });
     return response.data;
   },
 
   async createCostCenter(center: Partial<CostCenter>): Promise<CostCenter> {
     const response = await api.post('/cost-centers', center);
+    return response.data;
+  },
+
+  async updateCostCenter(id: string, update: Partial<CostCenter>): Promise<CostCenter> {
+    const response = await api.put(`/cost-centers/${id}`, update);
     return response.data;
   },
 

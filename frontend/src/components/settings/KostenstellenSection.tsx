@@ -25,8 +25,8 @@ export default function KostenstellenSection({ isDesktop, showToast }: Props) {
 
   const load = async () => {
     try {
-      // Fetch all including inactive
-      const data = await apiService.getCostCenters();
+      // Fetch all including inactive for admin management
+      const data = await apiService.getCostCenters(true);
       setCenters(data);
     } catch { showToast('error', 'Kostenstellen konnten nicht geladen werden'); }
     finally { setLoading(false); }
