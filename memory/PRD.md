@@ -1,7 +1,7 @@
-# Candis-Kopie – PRD (Product Requirements Document)
+# Autohaus Wilke – PRD (Product Requirements Document)
 
 ## Ursprüngliche Problembeschreibung
-Der Benutzer baut eine "Candis-Kopie" (Candis-Klon), ein KI-gestütztes Rechnungsverwaltungssystem.
+Der Benutzer baut ein KI-gestütztes Rechnungsverwaltungssystem für "Autohaus Wilke".
 
 ## Kernfunktionen (Anforderungen)
 - OCR-Datenextraktion aus Rechnungen
@@ -64,18 +64,29 @@ Der Benutzer baut eine "Candis-Kopie" (Candis-Klon), ein KI-gestütztes Rechnung
 - **MongoDB**: Alte NGO-Konten aus Datenbank gelöscht, neue KFZ-Konten werden bei nächster API-Anfrage automatisch eingesät
 - **Verifiziert**: `GET /api/accounts?kontenrahmen=SKR51` liefert 297 KFZ-Konten (Hebebühnen, Neufahrzeuge, Floorplan, etc.)
 
+### 2026-03-30 – VPS Deployment: Traefik + HTTPS + Custom Domain
+- **Traefik-Integration**: Docker Labels auf nginx-Container für automatisches Routing via `rechnung.autohaus-wilke.info`
+- **HTTPS**: Let's Encrypt SSL-Zertifikat via Traefik `letsencrypt` certresolver (automatisch)
+- **HTTP → HTTPS**: Automatische Weiterleitung bereits in Traefik konfiguriert
+- **Update-Script**: `/root/update.sh` angepasst – `docker-compose.yml` wird jetzt wie `.env` bei Updates erhalten
+- **VPS**: App läuft auf `https://rechnung.autohaus-wilke.info` + Fallback `http://72.62.126.38:8080`
+
 ### Frühere Sessions – Abgeschlossene Features
+- ✅ App umbenannt zu "Autohaus Wilke" (vorher Candis-Kopie)
+- ✅ Docker Compose Produktions-Setup (Backend + Frontend + MongoDB + Nginx)
+- ✅ GitHub CI/CD Pipeline via `update.sh`
+- ✅ Benutzerverwaltung: Name + Passwort direkt in der App änderbar
+- ✅ InvoiceActions.tsx: Custom Dropdown (statt nativer Web Picker)
+- ✅ Benutzerhandbuch (Bedienungsanleitung.html)
 - ✅ Frontend Refactoring: settings.tsx (2150→312 Zeilen), invoice/[id].tsx (1616→727 Zeilen)
 - ✅ PWA-Implementierung: manifest.json, sw.js, PWA-Meta-Tags
-- ✅ Zustand `import.meta` Bug Fix (Web Blank Screen)
-- ✅ SKR51 Frontend-Toggle in GeneralSettingsSection.tsx
+- ✅ SKR51 KFZ-Branche (297 korrekte Konten)
 - ✅ RBAC: Viewer kann keine Rechnungen hochladen
 - ✅ OCR via OpenRouter KI
 - ✅ DATEV-Export (simuliert)
 - ✅ SEPA-Export (simuliert)
 - ✅ Mehrstufige Approval-Workflows
 - ✅ GoBD-konforme Archivierung
-- ✅ Alpine Linux Deployment-Skripte
 
 ---
 
