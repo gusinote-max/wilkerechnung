@@ -2949,7 +2949,11 @@ async def get_email_inbox(
     current_user: dict = Depends(require_accountant_or_above())
 ):
     """Get emails from inbox cache"""
-    query: dict = {"archived": show_archived}
+    query: dict = {}
+    if show_archived:
+        query["archived"] = True
+    else:
+        query["$or"] = [{"archived": False}, {"archived": {"$exists": False}}]
     if status_filter and status_filter != "all":
         query["ai_status"] = status_filter
     items = await db.email_inbox.find(query).sort("date", -1).limit(limit).to_list(limit)
