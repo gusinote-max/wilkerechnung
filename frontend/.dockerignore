@@ -1,0 +1,12 @@
+node_modules
+dist
+.expo
+.expo-shared
+.env
+.env.local
+.env.production
+.git
+*.md
+android
+ios
+*.log

@@ -1,0 +1,77 @@
+version: "3.9"
+
+# ============================================================
+# Candis-Kopie – Docker Compose (Produktion)
+# Einsatz: docker compose up -d --build
+# ============================================================
+
+services:
+
+  # ---- MongoDB (intern, kein öffentlicher Port) ----
+  mongo:
+    image: mongo:7-jammy
+    restart: unless-stopped
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - candis_net
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---- FastAPI Backend ----
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # Überschreibt MONGO_URL aus .env mit internem Service-Namen
+      MONGO_URL: mongodb://mongo:27017/invoice_management
+    depends_on:
+      mongo:
+        condition: service_healthy
+    networks:
+      - candis_net
+
+  # ---- Expo Web Frontend (statischer Build via nginx) ----
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        # Leer = alle API-Aufrufe gehen als /api/... (wird von nginx geroutet)
+        EXPO_PUBLIC_BACKEND_URL: ""
+    restart: unless-stopped
+    networks:
+      - candis_net
+
+  # ---- Nginx Reverse Proxy (einziger öffentlicher Endpunkt) ----
+  nginx:
+    image: nginx:1.25-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      # HTTPS: Auskommentieren nach SSL-Zertifikat-Einrichtung
+      # - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      # SSL-Zertifikate (z.B. von Certbot/Let's Encrypt):
+      # - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - candis_net
+
+volumes:
+  mongo_data:
+    driver: local
+
+networks:
+  candis_net:
+    driver: bridge
