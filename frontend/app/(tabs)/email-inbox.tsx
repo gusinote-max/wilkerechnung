@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, RefreshControl, Platform, Dimensions,
@@ -6,7 +6,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, router } from 'expo-router';
 import { useAuthStore } from '../../src/store/authStore';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -20,10 +20,16 @@ interface EmailItem {
   id: string; uid: string; subject: string; sender: string; date: string;
   attachments: Attachment[]; ai_status: AiStatus; ai_confidence: number;
   ai_details: { document_type?: string; vendor_name?: string; gross_amount?: number; reason?: string; } | null;
-  imported: boolean; archived: boolean; invoice_id?: string;
+  imported: boolean; archived: boolean; invoice_id?: string; imported_at?: string;
 }
 interface SenderRule {
-  id: string; pattern: string; match_type: string; label: string; action: string; created_at: string;
+  id: string; pattern: string; match_type: string; label: string; action: string;
+}
+interface ReportItem extends EmailItem {
+  invoice_data: { vendor_name: string; invoice_number: string; gross_amount: number; status: string; id: string; } | null;
+}
+interface Report {
+  period: string; since: string; count: number; total_amount: number; items: ReportItem[];
 }
 
 const AI_BADGE: Record<AiStatus, { color: string; bg: string; icon: string; label: string }> = {
@@ -42,6 +48,9 @@ function fmtBytes(b: number) {
   if (b < 1024) return `${b} B`;
   if (b < 1048576) return `${(b / 1024).toFixed(0)} KB`;
   return `${(b / 1048576).toFixed(1)} MB`;
+}
+function fmtEuro(n: number) {
+  return n.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });
 }
 
 export default function EmailInboxScreen() {
@@ -65,8 +74,14 @@ export default function EmailInboxScreen() {
   const [showRulesModal, setShowRulesModal] = useState(false);
   const [newPattern, setNewPattern] = useState('');
   const [newLabel, setNewLabel] = useState('');
-  const [newMatchType, setNewMatchType] = useState('domain');
+  const [newMatchType, setNewMatchType] = useState<'domain' | 'email' | 'contains'>('domain');
   const [savingRule, setSavingRule] = useState(false);
+
+  // Report
+  const [showReport, setShowReport] = useState(false);
+  const [reportPeriod, setReportPeriod] = useState<'day' | 'week'>('day');
+  const [report, setReport] = useState<Report | null>(null);
+  const [reportLoading, setReportLoading] = useState(false);
 
   const showToast = (type: 'success' | 'error', msg: string) => {
     setToast({ type, msg });
@@ -108,7 +123,24 @@ export default function EmailInboxScreen() {
     finally { setPolling(false); }
   };
 
+  const loadReport = async (period: 'day' | 'week') => {
+    setReportLoading(true);
+    try {
+      const { data } = await axios.get<Report>(`${BACKEND_URL}/api/email-inbox/report`, { headers, params: { period } });
+      setReport(data);
+    } catch { showToast('error', 'Bericht konnte nicht geladen werden'); }
+    finally { setReportLoading(false); }
+  };
+
+  const openReport = () => {
+    setShowReport(true);
+    loadReport(reportPeriod);
+  };
+
   const toggleSelect = (id: string) => {
+    // Only allow selecting non-imported emails
+    const item = emails.find(e => e.id === id);
+    if (item?.imported) return;
     setSelected(prev => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id); else next.add(id);
@@ -116,10 +148,11 @@ export default function EmailInboxScreen() {
     });
   };
 
+  const totalImportable = emails.filter(e => !e.imported && (e.ai_status === 'invoice' || e.ai_status === 'uncertain'));
+
   const toggleSelectAll = () => {
-    const importable = emails.filter(e => !e.imported && (e.ai_status === 'invoice' || e.ai_status === 'uncertain'));
-    if (selected.size === importable.length) setSelected(new Set());
-    else setSelected(new Set(importable.map(e => e.id)));
+    if (selected.size === totalImportable.length) setSelected(new Set());
+    else setSelected(new Set(totalImportable.map(e => e.id)));
   };
 
   const handleBatchImport = async () => {
@@ -129,7 +162,7 @@ export default function EmailInboxScreen() {
       const { data } = await axios.post(
         `${BACKEND_URL}/api/email-inbox/batch-import`,
         Array.from(selected),
-        { headers, params: {} }
+        { headers }
       );
       showToast('success', `${data.success_count} von ${data.total} erfolgreich importiert`);
       setSelected(new Set());
@@ -140,10 +173,13 @@ export default function EmailInboxScreen() {
   };
 
   const handleImport = async (itemId: string) => {
+    // Double-check not already imported
+    const item = emails.find(e => e.id === itemId);
+    if (item?.imported) { showToast('error', 'Bereits importiert'); return; }
     setActionLoading(`import_${itemId}`);
     try {
       await axios.post(`${BACKEND_URL}/api/email-inbox/${itemId}/import`, null, { headers });
-      showToast('success', 'Rechnung importiert und archiviert');
+      showToast('success', 'Rechnung importiert und archiviert ✅');
       await loadEmails(true);
     } catch (e: any) { showToast('error', e.response?.data?.detail || 'Import fehlgeschlagen'); }
     finally { setActionLoading(null); }
@@ -161,6 +197,8 @@ export default function EmailInboxScreen() {
   };
 
   const handleDelete = async (itemId: string) => {
+    const item = emails.find(e => e.id === itemId);
+    if (item?.imported) { showToast('error', 'Importierte E-Mails können nicht gelöscht werden'); return; }
     setActionLoading(`del_${itemId}`);
     try {
       await axios.delete(`${BACKEND_URL}/api/email-inbox/${itemId}`, { headers });
@@ -191,9 +229,6 @@ export default function EmailInboxScreen() {
     } catch { showToast('error', 'Fehler beim Löschen'); }
   };
 
-  const importableSelected = emails.filter(e => selected.has(e.id) && !e.imported);
-  const totalImportable = emails.filter(e => !e.imported && (e.ai_status === 'invoice' || e.ai_status === 'uncertain'));
-
   const STATUS_FILTERS = [
     { key: 'all', label: 'Alle' },
     { key: 'invoice', label: '✅ Rechnung' },
@@ -206,30 +241,37 @@ export default function EmailInboxScreen() {
     const badge = AI_BADGE[item.ai_status] || AI_BADGE.pending;
     const isSelected = selected.has(item.id);
     const isImporting = actionLoading === `import_${item.id}`;
-    const isChecking = actionLoading === `ai_${item.id}`;
-    const isDeleting = actionLoading === `del_${item.id}`;
+    const isChecking  = actionLoading === `ai_${item.id}`;
+    const isDeleting  = actionLoading === `del_${item.id}`;
+    const canSelect   = !item.imported && selectMode;
 
     return (
       <TouchableOpacity
         key={item.id}
-        style={[styles.card, isSelected && styles.cardSelected, item.imported && !showArchived && styles.cardFaded]}
-        onPress={selectMode ? () => toggleSelect(item.id) : undefined}
-        activeOpacity={selectMode ? 0.7 : 1}
+        style={[styles.card, isSelected && styles.cardSelected, item.imported && styles.cardImported]}
+        onPress={canSelect ? () => toggleSelect(item.id) : undefined}
+        activeOpacity={canSelect ? 0.7 : 1}
       >
         <View style={styles.cardRow}>
-          {/* Checkbox */}
+          {/* Checkbox – nur für nicht-importierte im Auswahlmodus */}
           {selectMode && (
-            <TouchableOpacity style={styles.checkbox} onPress={() => toggleSelect(item.id)}>
-              <Ionicons
-                name={isSelected ? 'checkbox' : 'square-outline'}
-                size={22}
-                color={isSelected ? '#6c5ce7' : '#636e72'}
-              />
-            </TouchableOpacity>
+            <View style={styles.checkboxWrap}>
+              {item.imported ? (
+                <Ionicons name="lock-closed" size={18} color="#636e72" />
+              ) : (
+                <TouchableOpacity onPress={() => toggleSelect(item.id)}>
+                  <Ionicons
+                    name={isSelected ? 'checkbox' : 'square-outline'}
+                    size={22}
+                    color={isSelected ? '#6c5ce7' : '#636e72'}
+                  />
+                </TouchableOpacity>
+              )}
+            </View>
           )}
 
           <View style={{ flex: 1 }}>
-            {/* Header */}
+            {/* AI Badge + Imported Banner + Datum */}
             <View style={styles.cardHeader}>
               <View style={[styles.aiBadge, { backgroundColor: badge.bg }]}>
                 <Ionicons name={badge.icon as any} size={12} color={badge.color} />
@@ -240,12 +282,22 @@ export default function EmailInboxScreen() {
               </View>
               {item.imported && (
                 <View style={styles.importedBadge}>
-                  <Ionicons name="archive" size={11} color="#6c5ce7" />
-                  <Text style={styles.importedText}>Archiviert</Text>
+                  <Ionicons name="checkmark-done-circle" size={13} color="#6c5ce7" />
+                  <Text style={styles.importedBadgeText}>Importiert</Text>
                 </View>
               )}
               <Text style={styles.dateText}>{fmtDate(item.date)}</Text>
             </View>
+
+            {/* "Bereits importiert" Banner */}
+            {item.imported && (
+              <View style={styles.alreadyImportedBanner}>
+                <Ionicons name="information-circle" size={14} color="#6c5ce7" />
+                <Text style={styles.alreadyImportedText}>
+                  Diese Rechnung wurde bereits am {item.imported_at ? fmtDate(item.imported_at) : '–'} importiert.
+                </Text>
+              </View>
+            )}
 
             {/* Subject + Sender */}
             <Text style={styles.subject} numberOfLines={1}>{item.subject}</Text>
@@ -256,9 +308,7 @@ export default function EmailInboxScreen() {
               <View style={styles.aiDetails}>
                 {item.ai_details.vendor_name && <Text style={styles.aiDetailText}>🏢 {item.ai_details.vendor_name}</Text>}
                 {item.ai_details.gross_amount ? (
-                  <Text style={styles.aiDetailText}>
-                    💶 {item.ai_details.gross_amount.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}
-                  </Text>
+                  <Text style={styles.aiDetailText}>💶 {fmtEuro(item.ai_details.gross_amount)}</Text>
                 ) : null}
                 {item.ai_details.reason && (
                   <Text style={styles.aiReasonText} numberOfLines={1}>{item.ai_details.reason}</Text>
@@ -270,17 +320,14 @@ export default function EmailInboxScreen() {
             <View style={styles.attachRow}>
               {item.attachments.slice(0, 3).map((att, i) => (
                 <View key={i} style={styles.attachChip}>
-                  <Ionicons name={att.content_type.includes('pdf') ? 'document-text' : 'image'} size={11} color="#a0a0a0" />
+                  <Ionicons name={att.content_type?.includes('pdf') ? 'document-text' : 'image'} size={11} color="#a0a0a0" />
                   <Text style={styles.attachName} numberOfLines={1}>{att.filename}</Text>
                   <Text style={styles.attachSize}>{fmtBytes(att.size_bytes)}</Text>
                 </View>
               ))}
-              {item.attachments.length > 3 && (
-                <Text style={styles.moreAtts}>+{item.attachments.length - 3}</Text>
-              )}
             </View>
 
-            {/* Actions */}
+            {/* Actions – nur für NICHT importierte */}
             {!item.imported && !selectMode && (
               <View style={styles.actions}>
                 {item.ai_status === 'pending' && (
@@ -324,16 +371,17 @@ export default function EmailInboxScreen() {
       <View style={styles.header}>
         <View>
           <Text style={styles.headerTitle}>📧 E-Mail Eingang</Text>
-          <Text style={styles.headerSub}>
-            {emails.length} E-Mail(s) · {rules.length} Absenderregel(n)
-          </Text>
+          <Text style={styles.headerSub}>{emails.length} E-Mail(s) · {rules.length} Regel(n)</Text>
         </View>
         <View style={styles.headerBtns}>
+          <TouchableOpacity style={styles.iconBtn} onPress={openReport}>
+            <Ionicons name="bar-chart-outline" size={18} color="#a0a0a0" />
+          </TouchableOpacity>
           <TouchableOpacity style={styles.iconBtn} onPress={() => setShowRulesModal(true)}>
             <Ionicons name="shield-checkmark-outline" size={18} color="#a0a0a0" />
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.iconBtn, selectMode && { backgroundColor: '#6c5ce720' }]}
+            style={[styles.iconBtn, selectMode && { backgroundColor: '#6c5ce720', borderColor: '#6c5ce7' }]}
             onPress={() => { setSelectMode(!selectMode); setSelected(new Set()); }}
           >
             <Ionicons name="checkbox-outline" size={18} color={selectMode ? '#6c5ce7' : '#a0a0a0'} />
@@ -350,11 +398,13 @@ export default function EmailInboxScreen() {
         <View style={styles.batchBar}>
           <TouchableOpacity onPress={toggleSelectAll}>
             <Text style={styles.batchSelectAll}>
-              {selected.size === totalImportable.length ? 'Alle abwählen' : `Alle wählen (${totalImportable.length})`}
+              {selected.size === totalImportable.length && totalImportable.length > 0
+                ? 'Alle abwählen'
+                : `Alle wählen (${totalImportable.length})`}
             </Text>
           </TouchableOpacity>
           <View style={{ flex: 1 }} />
-          {selected.size > 0 && (
+          {selected.size > 0 ? (
             <TouchableOpacity
               style={[styles.batchImportBtn, batchLoading && { opacity: 0.6 }]}
               onPress={handleBatchImport}
@@ -367,8 +417,9 @@ export default function EmailInboxScreen() {
                 {batchLoading ? 'Importiert...' : `${selected.size} importieren`}
               </Text>
             </TouchableOpacity>
+          ) : (
+            <Text style={styles.batchHint}>Rechnungen antippen zum Auswählen</Text>
           )}
-          {selected.size === 0 && <Text style={styles.batchHint}>E-Mails antippen zum Auswählen</Text>}
         </View>
       )}
 
@@ -398,7 +449,7 @@ export default function EmailInboxScreen() {
         </ScrollView>
       </View>
 
-      {/* Content */}
+      {/* Email list */}
       {loading ? (
         <View style={styles.centered}>
           <ActivityIndicator size="large" color="#6c5ce7" />
@@ -407,11 +458,11 @@ export default function EmailInboxScreen() {
       ) : emails.length === 0 ? (
         <View style={styles.centered}>
           <Ionicons name="mail-open-outline" size={56} color="#2d2d44" />
-          <Text style={styles.emptyTitle}>{showArchived ? 'Archiv leer' : 'Kein Posteingang'}</Text>
+          <Text style={styles.emptyTitle}>{showArchived ? 'Archiv leer' : 'Posteingang leer'}</Text>
           <Text style={styles.emptyText}>
             {showArchived
               ? 'Noch keine importierten E-Mails im Archiv.'
-              : 'IMAP konfigurieren (Einstellungen → E-Mail) und auf "Abrufen" klicken.'}
+              : 'Alle E-Mails wurden verarbeitet oder IMAP ist noch nicht konfiguriert.'}
           </Text>
         </View>
       ) : (
@@ -424,7 +475,7 @@ export default function EmailInboxScreen() {
         </ScrollView>
       )}
 
-      {/* Sender Rules Modal */}
+      {/* ===== SENDER RULES MODAL ===== */}
       <Modal visible={showRulesModal} transparent animationType="slide" onRequestClose={() => setShowRulesModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalBox}>
@@ -434,11 +485,7 @@ export default function EmailInboxScreen() {
                 <Ionicons name="close" size={22} color="#fff" />
               </TouchableOpacity>
             </View>
-            <Text style={styles.modalHint}>
-              E-Mails von vertrauenswürdigen Absendern werden sofort als Eingangsrechnung erkannt.
-            </Text>
-
-            {/* Add rule */}
+            <Text style={styles.modalHint}>E-Mails von diesen Absendern werden sofort als Eingangsrechnung erkannt.</Text>
             <View style={styles.ruleForm}>
               <View style={styles.ruleMatchRow}>
                 {(['domain', 'email', 'contains'] as const).map(mt => (
@@ -453,46 +500,119 @@ export default function EmailInboxScreen() {
                   </TouchableOpacity>
                 ))}
               </View>
-              <TextInput
-                style={styles.ruleInput}
-                value={newPattern}
-                onChangeText={setNewPattern}
-                placeholder={newMatchType === 'domain' ? 'z.B. bosch.de' : newMatchType === 'email' ? 'z.B. rechnung@lieferant.de' : 'z.B. rechnung'}
-                placeholderTextColor="#636e72"
-                autoCapitalize="none"
-              />
-              <TextInput
-                style={styles.ruleInput}
-                value={newLabel}
-                onChangeText={setNewLabel}
-                placeholder="Bezeichnung (optional, z.B. Bosch GmbH)"
-                placeholderTextColor="#636e72"
-              />
+              <TextInput style={styles.ruleInput} value={newPattern} onChangeText={setNewPattern}
+                placeholder={newMatchType === 'domain' ? 'z.B. bosch.de' : newMatchType === 'email' ? 'z.B. re@lieferant.de' : 'z.B. rechnung'}
+                placeholderTextColor="#636e72" autoCapitalize="none" />
+              <TextInput style={styles.ruleInput} value={newLabel} onChangeText={setNewLabel}
+                placeholder="Bezeichnung (optional, z.B. Bosch GmbH)" placeholderTextColor="#636e72" />
               <TouchableOpacity style={[styles.addRuleBtn, savingRule && { opacity: 0.6 }]} onPress={handleAddRule} disabled={savingRule}>
                 <Ionicons name="add" size={16} color="#fff" />
                 <Text style={styles.addRuleBtnText}>Regel hinzufügen</Text>
               </TouchableOpacity>
             </View>
+            <ScrollView style={{ maxHeight: 280 }}>
+              {rules.length === 0
+                ? <Text style={styles.noRulesText}>Noch keine Regeln definiert.</Text>
+                : rules.map(rule => (
+                  <View key={rule.id} style={styles.ruleItem}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.rulePattern}>{rule.pattern}</Text>
+                      <Text style={styles.ruleMeta}>
+                        {rule.match_type === 'domain' ? '🌐 Domain' : rule.match_type === 'email' ? '📧 E-Mail' : '🔍 Enthält'}
+                        {rule.label ? ` · ${rule.label}` : ''}
+                      </Text>
+                    </View>
+                    <TouchableOpacity onPress={() => handleDeleteRule(rule.id)} style={styles.ruleDelBtn}>
+                      <Ionicons name="trash-outline" size={16} color="#d63031" />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
-            {/* Rules list */}
-            <ScrollView style={{ maxHeight: 300 }}>
-              {rules.length === 0 ? (
-                <Text style={styles.noRulesText}>Noch keine Regeln definiert.</Text>
-              ) : rules.map(rule => (
-                <View key={rule.id} style={styles.ruleItem}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.rulePattern}>{rule.pattern}</Text>
-                    <Text style={styles.ruleMeta}>
-                      {rule.match_type === 'domain' ? '🌐 Domain' : rule.match_type === 'email' ? '📧 E-Mail' : '🔍 Enthält'}
-                      {rule.label ? ` · ${rule.label}` : ''}
+      {/* ===== REPORT MODAL ===== */}
+      <Modal visible={showReport} transparent animationType="slide" onRequestClose={() => setShowReport(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalBox, { maxHeight: '90%' }]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>📊 Import-Bericht</Text>
+              <TouchableOpacity onPress={() => setShowReport(false)}>
+                <Ionicons name="close" size={22} color="#fff" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Period toggle */}
+            <View style={styles.periodToggle}>
+              <TouchableOpacity
+                style={[styles.periodBtn, reportPeriod === 'day' && styles.periodBtnActive]}
+                onPress={() => { setReportPeriod('day'); loadReport('day'); }}
+              >
+                <Text style={[styles.periodBtnText, reportPeriod === 'day' && styles.periodBtnTextActive]}>Heute</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.periodBtn, reportPeriod === 'week' && styles.periodBtnActive]}
+                onPress={() => { setReportPeriod('week'); loadReport('week'); }}
+              >
+                <Text style={[styles.periodBtnText, reportPeriod === 'week' && styles.periodBtnTextActive]}>Diese Woche</Text>
+              </TouchableOpacity>
+            </View>
+
+            {reportLoading ? (
+              <View style={styles.centered}>
+                <ActivityIndicator size="large" color="#6c5ce7" />
+              </View>
+            ) : report ? (
+              <ScrollView>
+                {/* Summary */}
+                <View style={styles.reportSummary}>
+                  <View style={styles.reportStat}>
+                    <Text style={styles.reportStatValue}>{report.count}</Text>
+                    <Text style={styles.reportStatLabel}>Importiert</Text>
+                  </View>
+                  <View style={styles.reportStatDivider} />
+                  <View style={styles.reportStat}>
+                    <Text style={styles.reportStatValue}>{fmtEuro(report.total_amount)}</Text>
+                    <Text style={styles.reportStatLabel}>Erkanntes Volumen</Text>
+                  </View>
+                </View>
+
+                {report.items.length === 0 ? (
+                  <View style={styles.reportEmpty}>
+                    <Ionicons name="checkmark-circle-outline" size={40} color="#2d2d44" />
+                    <Text style={styles.reportEmptyText}>
+                      {reportPeriod === 'day' ? 'Heute noch keine Importe.' : 'Diese Woche noch keine Importe.'}
                     </Text>
                   </View>
-                  <TouchableOpacity onPress={() => handleDeleteRule(rule.id)} style={styles.ruleDelBtn}>
-                    <Ionicons name="trash-outline" size={16} color="#d63031" />
-                  </TouchableOpacity>
-                </View>
-              ))}
-            </ScrollView>
+                ) : (
+                  report.items.map((item, i) => (
+                    <View key={item.id} style={styles.reportItem}>
+                      <View style={styles.reportItemLeft}>
+                        <Text style={styles.reportItemNum}>{i + 1}</Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.reportItemSubject} numberOfLines={1}>{item.subject}</Text>
+                        <Text style={styles.reportItemSender} numberOfLines={1}>{item.sender}</Text>
+                        {item.invoice_data && (
+                          <View style={styles.reportItemInvoice}>
+                            {item.invoice_data.vendor_name ? (
+                              <Text style={styles.reportItemDetail}>🏢 {item.invoice_data.vendor_name}</Text>
+                            ) : null}
+                            {item.invoice_data.gross_amount > 0 ? (
+                              <Text style={styles.reportItemAmount}>{fmtEuro(item.invoice_data.gross_amount)}</Text>
+                            ) : null}
+                          </View>
+                        )}
+                        <Text style={styles.reportItemDate}>
+                          Importiert: {item.imported_at ? fmtDate(item.imported_at) : '–'}
+                        </Text>
+                      </View>
+                    </View>
+                  ))
+                )}
+              </ScrollView>
+            ) : null}
           </View>
         </View>
       </Modal>
@@ -506,7 +626,7 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 17, fontWeight: 'bold', color: '#fff' },
   headerSub: { fontSize: 12, color: '#636e72', marginTop: 2 },
   headerBtns: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  iconBtn: { padding: 8, borderRadius: 8, backgroundColor: '#2d2d44' },
+  iconBtn: { padding: 8, borderRadius: 8, backgroundColor: '#2d2d44', borderWidth: 1, borderColor: '#2d2d44' },
   pollBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#6c5ce7', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 },
   pollBtnText: { color: '#fff', fontWeight: '600', fontSize: 13 },
   batchBar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, backgroundColor: '#1a1a2e', borderBottomWidth: 1, borderBottomColor: '#6c5ce740', gap: 10 },
@@ -526,18 +646,21 @@ const styles = StyleSheet.create({
   list: { flex: 1 },
   listContent: { padding: 12, gap: 10 },
   desktopContent: { maxWidth: 860, alignSelf: 'center', width: '100%' },
+  // Card
   card: { backgroundColor: '#1a1a2e', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#2d2d44' },
   cardSelected: { borderColor: '#6c5ce7', backgroundColor: '#6c5ce710' },
-  cardFaded: { opacity: 0.7 },
+  cardImported: { borderColor: '#6c5ce730', backgroundColor: '#1a1a2e' },
   cardRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-  checkbox: { paddingTop: 2 },
+  checkboxWrap: { paddingTop: 2, width: 26, alignItems: 'center' },
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6, flexWrap: 'wrap' },
   aiBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 },
   aiBadgeText: { fontSize: 11, fontWeight: '600' },
   aiConf: { fontSize: 10, opacity: 0.8 },
-  importedBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#6c5ce720', paddingHorizontal: 7, paddingVertical: 3, borderRadius: 10 },
-  importedText: { fontSize: 10, color: '#6c5ce7', fontWeight: '600' },
+  importedBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#6c5ce720', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
+  importedBadgeText: { fontSize: 11, color: '#6c5ce7', fontWeight: '700' },
   dateText: { marginLeft: 'auto', fontSize: 11, color: '#636e72' },
+  alreadyImportedBanner: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#6c5ce710', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, marginBottom: 8, borderWidth: 1, borderColor: '#6c5ce730' },
+  alreadyImportedText: { fontSize: 12, color: '#a29bfe', flex: 1 },
   subject: { fontSize: 14, fontWeight: '600', color: '#fff', marginBottom: 3 },
   sender: { fontSize: 12, color: '#a0a0a0', marginBottom: 8 },
   aiDetails: { backgroundColor: '#0f0f1a', borderRadius: 8, padding: 9, marginBottom: 8, gap: 3 },
@@ -547,7 +670,6 @@ const styles = StyleSheet.create({
   attachChip: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#0f0f1a', borderRadius: 7, paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: '#2d2d44', maxWidth: 200 },
   attachName: { fontSize: 11, color: '#a0a0a0', flex: 1 },
   attachSize: { fontSize: 10, color: '#636e72' },
-  moreAtts: { fontSize: 11, color: '#636e72', alignSelf: 'center' },
   actions: { flexDirection: 'row', gap: 7 },
   btnPrimary: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, backgroundColor: '#00b894', borderRadius: 8, paddingVertical: 9 },
   btnPrimaryText: { color: '#fff', fontWeight: '700', fontSize: 12 },
@@ -562,12 +684,13 @@ const styles = StyleSheet.create({
   toastSuccess: { backgroundColor: '#00b894' },
   toastError: { backgroundColor: '#d63031' },
   toastText: { color: '#fff', fontWeight: '600', fontSize: 14, flex: 1 },
-  // Modal
+  // Modal shared
   modalOverlay: { flex: 1, backgroundColor: '#000000aa', justifyContent: 'flex-end' },
   modalBox: { backgroundColor: '#1a1a2e', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, maxHeight: '85%' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   modalTitle: { fontSize: 17, fontWeight: 'bold', color: '#fff' },
   modalHint: { fontSize: 13, color: '#636e72', marginBottom: 16, lineHeight: 18 },
+  // Sender rules
   ruleForm: { gap: 8, marginBottom: 16 },
   ruleMatchRow: { flexDirection: 'row', gap: 8 },
   matchChip: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: '#2d2d44', backgroundColor: '#0f0f1a' },
@@ -581,4 +704,26 @@ const styles = StyleSheet.create({
   rulePattern: { fontSize: 14, color: '#fff', fontWeight: '600', marginBottom: 3 },
   ruleMeta: { fontSize: 12, color: '#636e72' },
   ruleDelBtn: { padding: 8 },
+  // Report
+  periodToggle: { flexDirection: 'row', backgroundColor: '#0f0f1a', borderRadius: 10, padding: 4, marginBottom: 16 },
+  periodBtn: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 8 },
+  periodBtnActive: { backgroundColor: '#6c5ce7' },
+  periodBtnText: { fontSize: 14, color: '#636e72', fontWeight: '600' },
+  periodBtnTextActive: { color: '#fff' },
+  reportSummary: { flexDirection: 'row', backgroundColor: '#0f0f1a', borderRadius: 12, padding: 16, marginBottom: 16, alignItems: 'center' },
+  reportStat: { flex: 1, alignItems: 'center' },
+  reportStatValue: { fontSize: 22, fontWeight: 'bold', color: '#fff', marginBottom: 4 },
+  reportStatLabel: { fontSize: 12, color: '#636e72' },
+  reportStatDivider: { width: 1, height: 40, backgroundColor: '#2d2d44', marginHorizontal: 16 },
+  reportEmpty: { alignItems: 'center', paddingVertical: 32, gap: 12 },
+  reportEmptyText: { fontSize: 14, color: '#636e72' },
+  reportItem: { flexDirection: 'row', gap: 12, backgroundColor: '#0f0f1a', borderRadius: 10, padding: 12, marginBottom: 8, alignItems: 'flex-start' },
+  reportItemLeft: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#6c5ce720', alignItems: 'center', justifyContent: 'center' },
+  reportItemNum: { fontSize: 12, color: '#6c5ce7', fontWeight: '700' },
+  reportItemSubject: { fontSize: 13, fontWeight: '600', color: '#fff', marginBottom: 2 },
+  reportItemSender: { fontSize: 11, color: '#636e72', marginBottom: 6 },
+  reportItemInvoice: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4 },
+  reportItemDetail: { fontSize: 12, color: '#a0a0a0' },
+  reportItemAmount: { fontSize: 13, fontWeight: '700', color: '#00b894' },
+  reportItemDate: { fontSize: 11, color: '#636e72' },
 });

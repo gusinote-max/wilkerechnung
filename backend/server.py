@@ -3044,6 +3044,55 @@ async def delete_inbox_item(item_id: str, current_user: dict = Depends(require_a
     await db.email_inbox.delete_one({"id": item_id})
     return {"message": "E-Mail aus Posteingangsliste entfernt"}
 
+@api_router.get("/email-inbox/report")
+async def get_inbox_report(
+    period: str = "day",  # day, week
+    current_user: dict = Depends(require_accountant_or_above())
+):
+    """Daily/weekly import report"""
+    now = datetime.utcnow()
+    if period == "week":
+        since = now - timedelta(days=7)
+    else:
+        since = now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    items = await db.email_inbox.find({
+        "imported": True,
+        "imported_at": {"$gte": since}
+    }).sort("imported_at", -1).to_list(500)
+
+    result = []
+    for item in items:
+        item.pop("_id", None)
+        invoice_id = item.get("invoice_id")
+        invoice_data = None
+        if invoice_id:
+            inv = await db.invoices.find_one({"id": invoice_id})
+            if inv:
+                d = inv.get("data", {})
+                invoice_data = {
+                    "vendor_name": d.get("vendor_name", ""),
+                    "invoice_number": d.get("invoice_number", ""),
+                    "gross_amount": d.get("gross_amount") or 0,
+                    "status": inv.get("status", ""),
+                    "id": invoice_id
+                }
+        for att in item.get("attachments", []):
+            att.pop("content_base64", None)
+        result.append({**item, "invoice_data": invoice_data})
+
+    total_amount = sum(
+        r.get("invoice_data", {}).get("gross_amount", 0) or 0
+        for r in result if r.get("invoice_data")
+    )
+    return {
+        "period": period,
+        "since": since.isoformat(),
+        "count": len(result),
+        "total_amount": round(total_amount, 2),
+        "items": result
+    }
+
 # ===================== SENDER RULES =====================
 
 @api_router.get("/email-inbox/sender-rules")
