@@ -2051,13 +2051,20 @@ async def delete_invoice(invoice_id: str, current_user: dict = Depends(require_a
 
 @api_router.post("/invoices/{invoice_id}/approve", response_model=Invoice)
 async def approve_invoice(invoice_id: str, approval: ApprovalRequest, current_user: dict = Depends(require_manager_or_above())):
-    """Approve an invoice (Admin/Manager only)"""
+    """Approve an invoice – requires Kontierung (account_number) to be set"""
     invoice = await db.invoices.find_one({"id": invoice_id})
     if not invoice:
         raise HTTPException(status_code=404, detail="Rechnung nicht gefunden")
-    
     if invoice['status'] != InvoiceStatus.PENDING.value:
         raise HTTPException(status_code=400, detail="Nur ausstehende Rechnungen können genehmigt werden")
+
+    # Kontierung-Pflicht: Sachkonto muss gesetzt sein
+    account_number = (invoice.get("data") or {}).get("account_number")
+    if not account_number or not str(account_number).strip():
+        raise HTTPException(
+            status_code=422,
+            detail="Genehmigung nicht möglich: Bitte zuerst eine Kontierung (Sachkonto) hinterlegen."
+        )
     
     update_data = {
         "status": InvoiceStatus.APPROVED.value,
@@ -2522,10 +2529,18 @@ async def get_invoice_workflow_status(invoice_id: str):
 
 @api_router.post("/invoices/{invoice_id}/workflow/approve")
 async def approve_workflow_stage(invoice_id: str, approval: ApprovalRequest, background_tasks: BackgroundTasks):
-    """Approve current workflow stage"""
+    """Approve current workflow stage – requires Kontierung"""
     invoice = await db.invoices.find_one({"id": invoice_id})
     if not invoice:
         raise HTTPException(status_code=404, detail="Rechnung nicht gefunden")
+
+    # Kontierung-Pflicht auch im Workflow
+    account_number = (invoice.get("data") or {}).get("account_number")
+    if not account_number or not str(account_number).strip():
+        raise HTTPException(
+            status_code=422,
+            detail="Genehmigung nicht möglich: Bitte zuerst eine Kontierung (Sachkonto) hinterlegen."
+        )
     
     workflow = await get_invoice_workflow(invoice_id)
     if not workflow:
