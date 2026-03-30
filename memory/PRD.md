@@ -46,6 +46,13 @@ Der Benutzer baut eine "Candis-Kopie" (Candis-Klon), ein KI-gestütztes Rechnung
 
 ## CHANGELOG
 
+### 2026-03-30 – E-Mail IMAP Rechnungsimport (Neues Feature)
+- **Backend**: `ImapSettings` + `EmailInboxItem` Modelle, APScheduler für automatisches Polling
+- **Endpoints**: `/api/imap-settings`, `/api/email-inbox`, `/api/email-inbox/poll`, `/api/email-inbox/{id}/ai-check`, `/api/email-inbox/{id}/import`
+- **Frontend**: Neuer Tab „E-Mail" (`email-inbox.tsx`), `ImapSettingsSection` in Einstellungen
+- **Import-Modi**: Manuell / Halbautomatisch (KI schlägt vor) / Automatisch
+- **KI-Prüfung**: OpenRouter analysiert Anhang und klassifiziert als Eingangsrechnung/Lieferschein/Sonstiges
+
 ### 2026-03-29 – SKR51 KFZ-Branche Korrektur (P0 Fix)
 - **Problem**: SKR51 enthielt 203 falsche NGO/Non-Profit-Konten
 - **Lösung**: `server.py` SKR51_ACCOUNTS ersetzt durch 297 korrekte KFZ-Handel/Kfz-Handwerk-Konten

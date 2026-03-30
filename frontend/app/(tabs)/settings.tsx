@@ -26,6 +26,7 @@ import GeneralSettingsSection from '../../src/components/settings/GeneralSetting
 import DatevSettingsSection from '../../src/components/settings/DatevSettingsSection';
 import BankingSettingsSection from '../../src/components/settings/BankingSettingsSection';
 import EmailSettingsSection from '../../src/components/settings/EmailSettingsSection';
+import ImapSettingsSection from '../../src/components/settings/ImapSettingsSection';
 import WorkflowSettingsSection from '../../src/components/settings/WorkflowSettingsSection';
 import WebhookSettingsSection from '../../src/components/settings/WebhookSettingsSection';
 
@@ -38,6 +39,19 @@ interface EmailSettingsData {
   from_email: string;
   from_name: string;
   enabled: boolean;
+  has_password: boolean;
+}
+
+interface ImapSettingsData {
+  imap_host: string;
+  imap_port: number;
+  imap_user: string;
+  imap_folder: string;
+  imap_ssl: boolean;
+  imap_enabled: boolean;
+  auto_import_mode: string;
+  poll_interval_minutes: number;
+  ai_confidence_threshold: number;
   has_password: boolean;
 }
 
@@ -54,6 +68,7 @@ export default function SettingsScreen() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [emailSettings, setEmailSettings] = useState<EmailSettingsData | null>(null);
+  const [imapSettings, setImapSettings] = useState<ImapSettingsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState<ToastData | null>(null);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -75,6 +90,16 @@ export default function SettingsScreen() {
         setEmailSettings(emailData.data);
       } catch (e) {
         console.log('Email settings not available');
+      }
+
+      // Load IMAP settings
+      try {
+        const imapData = await axios.get(`${BACKEND_URL}/api/imap-settings`, {
+          headers: { Authorization: `Bearer ${useAuthStore.getState().token}` }
+        });
+        setImapSettings(imapData.data);
+      } catch (e) {
+        console.log('IMAP settings not available');
       }
 
       setSettings(settingsData);
@@ -177,6 +202,15 @@ export default function SettingsScreen() {
               isDesktop={isDesktop}
               initialData={emailSettings}
               userEmail={user?.email}
+              showToast={showToast}
+            />
+          )}
+
+          {isAdmin && (
+            <ImapSettingsSection
+              isDesktop={isDesktop}
+              initialData={imapSettings}
+              token={useAuthStore.getState().token || ''}
               showToast={showToast}
             />
           )}

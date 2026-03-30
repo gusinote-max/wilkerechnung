@@ -25,6 +25,13 @@ import aiosmtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import fitz  # PyMuPDF for PDF to image conversion
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+
+# Thread pool for blocking IMAP operations
+_thread_pool = ThreadPoolExecutor(max_workers=2)
+_imap_scheduler: Optional[AsyncIOScheduler] = None
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -802,6 +809,40 @@ class EmailNotification(BaseModel):
     sent_at: Optional[datetime] = None
     error: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+class ImapSettings(BaseModel):
+    imap_host: str = ""
+    imap_port: int = 993
+    imap_user: str = ""
+    imap_password: str = ""
+    imap_folder: str = "INBOX"
+    imap_ssl: bool = True
+    imap_enabled: bool = False
+    auto_import_mode: str = "semi"  # manual, semi, auto
+    poll_interval_minutes: int = 15
+    ai_confidence_threshold: float = 0.85
+
+class EmailAttachmentInfo(BaseModel):
+    filename: str
+    content_type: str
+    size_bytes: int
+
+class EmailInboxItem(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    uid: str
+    message_id: str = ""
+    subject: str = ""
+    sender: str = ""
+    date: datetime = Field(default_factory=datetime.utcnow)
+    attachments: List[dict] = []
+    ai_status: str = "pending"  # pending, invoice, not_invoice, uncertain, checking
+    ai_confidence: float = 0.0
+    ai_details: Optional[dict] = None
+    ai_checked_at: Optional[datetime] = None
+    imported: bool = False
+    invoice_id: Optional[str] = None
+    imported_at: Optional[datetime] = None
+    fetched_at: datetime = Field(default_factory=datetime.utcnow)
 
 # ===================== AUTH HELPERS =====================
 def hash_password(password: str) -> str:
@@ -2630,6 +2671,338 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ===================== IMAP EMAIL IMPORT =====================
+
+async def get_imap_settings() -> ImapSettings:
+    """Get IMAP settings from database"""
+    doc = await db.imap_settings.find_one({"id": "imap_settings"})
+    if doc:
+        return ImapSettings(**{k: v for k, v in doc.items() if k not in ('_id', 'id')})
+    return ImapSettings()
+
+def _fetch_emails_from_imap(host: str, port: int, user: str, password: str, folder: str, ssl: bool, limit: int = 50) -> List[dict]:
+    """Blocking IMAP fetch – runs in thread pool"""
+    from imap_tools import MailBox, MailBoxTls, AND
+    result = []
+    try:
+        mb_class = MailBox if ssl else MailBoxTls
+        with MailBox(host, port=port).login(user, password, folder) as mailbox:
+            msgs = list(mailbox.fetch(limit=limit, reverse=True))
+            for msg in msgs:
+                attachments = []
+                for att in msg.attachments:
+                    ct = att.content_type.lower()
+                    if any(ct.startswith(t) for t in ['application/pdf', 'image/jpeg', 'image/png', 'image/tiff']):
+                        attachments.append({
+                            "filename": att.filename or "anhang.pdf",
+                            "content_type": att.content_type,
+                            "size_bytes": len(att.payload),
+                            "content_base64": base64.b64encode(att.payload).decode()
+                        })
+                if attachments:
+                    result.append({
+                        "uid": str(msg.uid),
+                        "message_id": str(msg.uid),
+                        "subject": msg.subject or "(Kein Betreff)",
+                        "sender": msg.from_ or "",
+                        "date": msg.date or datetime.utcnow(),
+                        "attachments": attachments
+                    })
+    except Exception as e:
+        raise Exception(f"IMAP-Verbindungsfehler: {str(e)}")
+    return result
+
+async def run_ai_classification_for_email(item_id: str):
+    """Run AI classification on first PDF attachment of an email"""
+    item_doc = await db.email_inbox.find_one({"id": item_id})
+    if not item_doc:
+        return
+    attachments = item_doc.get("attachments", [])
+    if not attachments:
+        await db.email_inbox.update_one({"id": item_id}, {"$set": {"ai_status": "not_invoice", "ai_confidence": 0.0, "ai_checked_at": datetime.utcnow()}})
+        return
+
+    await db.email_inbox.update_one({"id": item_id}, {"$set": {"ai_status": "checking"}})
+
+    settings = await get_settings()
+    if not settings.ai_settings.api_key:
+        await db.email_inbox.update_one({"id": item_id}, {"$set": {"ai_status": "pending", "ai_checked_at": datetime.utcnow()}})
+        return
+
+    # Use first PDF attachment
+    att = next((a for a in attachments if 'pdf' in a.get('content_type','').lower() or a['filename'].lower().endswith('.pdf')), attachments[0])
+    raw_b64 = att.get("content_base64", "")
+    
+    # Convert PDF page 1 to image for AI
+    image_contents = []
+    try:
+        import fitz
+        pdf_bytes = base64.b64decode(raw_b64)
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        page = doc.load_page(0)
+        mat = fitz.Matrix(1.5, 1.5)
+        pix = page.get_pixmap(matrix=mat)
+        img_b64 = base64.b64encode(pix.tobytes("png")).decode()
+        doc.close()
+        image_contents = [{"type": "image_url", "image_url": {"url": f"data:image/png;base64,{img_b64}"}}]
+    except Exception:
+        # Fallback: use raw base64 as image
+        image_contents = [{"type": "image_url", "image_url": {"url": f"data:application/pdf;base64,{raw_b64}"}}]
+
+    prompt = """Analysiere dieses Dokument und bestimme ob es sich um eine EINGANGSRECHNUNG handelt.
+Antworte NUR mit diesem JSON (keine weiteren Zeichen):
+{
+  "is_invoice": true,
+  "confidence": 0.95,
+  "document_type": "Eingangsrechnung",
+  "vendor_name": "Lieferantenname",
+  "invoice_number": "Rechnungsnummer falls erkannt",
+  "gross_amount": 0.00,
+  "reason": "Kurze Begründung auf Deutsch"
+}
+Mögliche Dokumenttypen: Eingangsrechnung, Lieferschein, Angebot, Auftragsbestätigung, Mahnung, Sonstiges"""
+
+    try:
+        async with httpx.AsyncClient() as client_http:
+            response = await client_http.post(
+                "https://openrouter.ai/api/v1/chat/completions",
+                headers={"Authorization": f"Bearer {settings.ai_settings.api_key}", "Content-Type": "application/json"},
+                json={
+                    "model": settings.ai_settings.model or "anthropic/claude-3-haiku",
+                    "messages": [{"role": "user", "content": [{"type": "text", "text": prompt}] + image_contents}],
+                    "max_tokens": 300
+                },
+                timeout=30.0
+            )
+        result = response.json()
+        content = result["choices"][0]["message"]["content"].strip()
+        # Extract JSON
+        if "```" in content:
+            content = content.split("```")[1]
+            if content.startswith("json"):
+                content = content[4:]
+        ai_data = json.loads(content)
+        confidence = float(ai_data.get("confidence", 0.5))
+        is_inv = bool(ai_data.get("is_invoice", False))
+        if is_inv and confidence >= 0.8:
+            status = "invoice"
+        elif confidence < 0.6:
+            status = "not_invoice"
+        else:
+            status = "uncertain"
+        await db.email_inbox.update_one(
+            {"id": item_id},
+            {"$set": {
+                "ai_status": status,
+                "ai_confidence": confidence,
+                "ai_details": ai_data,
+                "ai_checked_at": datetime.utcnow()
+            }}
+        )
+    except Exception as e:
+        logger.error(f"AI classification error for email {item_id}: {e}")
+        await db.email_inbox.update_one({"id": item_id}, {"$set": {"ai_status": "uncertain", "ai_confidence": 0.5, "ai_checked_at": datetime.utcnow()}})
+
+async def poll_imap_and_store():
+    """Fetch new emails from IMAP and store in DB"""
+    imap_cfg = await get_imap_settings()
+    if not imap_cfg.imap_enabled or not imap_cfg.imap_host:
+        return 0
+
+    loop = asyncio.get_event_loop()
+    try:
+        emails = await loop.run_in_executor(
+            _thread_pool,
+            _fetch_emails_from_imap,
+            imap_cfg.imap_host, imap_cfg.imap_port,
+            imap_cfg.imap_user, imap_cfg.imap_password,
+            imap_cfg.imap_folder, imap_cfg.imap_ssl, 30
+        )
+    except Exception as e:
+        logger.error(f"IMAP poll failed: {e}")
+        return 0
+
+    new_count = 0
+    for email_data in emails:
+        existing = await db.email_inbox.find_one({"uid": email_data["uid"]})
+        if not existing:
+            item = EmailInboxItem(**email_data)
+            await db.email_inbox.insert_one(item.model_dump())
+            new_count += 1
+            if imap_cfg.auto_import_mode in ["semi", "auto"]:
+                asyncio.create_task(run_ai_classification_for_email(item.id))
+
+    logger.info(f"IMAP poll: {new_count} neue Mails gespeichert")
+    return new_count
+
+@api_router.get("/imap-settings")
+async def get_imap_settings_route(current_user: dict = Depends(require_admin())):
+    cfg = await get_imap_settings()
+    return {
+        "imap_host": cfg.imap_host,
+        "imap_port": cfg.imap_port,
+        "imap_user": cfg.imap_user,
+        "imap_folder": cfg.imap_folder,
+        "imap_ssl": cfg.imap_ssl,
+        "imap_enabled": cfg.imap_enabled,
+        "auto_import_mode": cfg.auto_import_mode,
+        "poll_interval_minutes": cfg.poll_interval_minutes,
+        "ai_confidence_threshold": cfg.ai_confidence_threshold,
+        "has_password": bool(cfg.imap_password)
+    }
+
+@api_router.put("/imap-settings")
+async def update_imap_settings_route(
+    imap_host: str = "",
+    imap_port: int = 993,
+    imap_user: str = "",
+    imap_password: Optional[str] = None,
+    imap_folder: str = "INBOX",
+    imap_ssl: bool = True,
+    imap_enabled: bool = False,
+    auto_import_mode: str = "semi",
+    poll_interval_minutes: int = 15,
+    ai_confidence_threshold: float = 0.85,
+    current_user: dict = Depends(require_admin())
+):
+    existing = await get_imap_settings()
+    password = imap_password if imap_password is not None else existing.imap_password
+    cfg = ImapSettings(
+        imap_host=imap_host, imap_port=imap_port, imap_user=imap_user,
+        imap_password=password, imap_folder=imap_folder, imap_ssl=imap_ssl,
+        imap_enabled=imap_enabled, auto_import_mode=auto_import_mode,
+        poll_interval_minutes=poll_interval_minutes,
+        ai_confidence_threshold=ai_confidence_threshold
+    )
+    await db.imap_settings.replace_one({"id": "imap_settings"}, {"id": "imap_settings", **cfg.model_dump()}, upsert=True)
+
+    # Reschedule the polling job with new interval
+    global _imap_scheduler
+    if _imap_scheduler and _imap_scheduler.running:
+        try:
+            _imap_scheduler.reschedule_job("imap_poll", trigger="interval", minutes=poll_interval_minutes)
+        except Exception:
+            pass
+
+    return {"message": "IMAP-Einstellungen gespeichert"}
+
+@api_router.post("/imap-settings/test")
+async def test_imap_connection(current_user: dict = Depends(require_admin())):
+    """Test IMAP connection with current settings"""
+    cfg = await get_imap_settings()
+    if not cfg.imap_host or not cfg.imap_user:
+        raise HTTPException(status_code=400, detail="IMAP-Einstellungen unvollständig")
+    loop = asyncio.get_event_loop()
+    try:
+        def _test():
+            from imap_tools import MailBox
+            with MailBox(cfg.imap_host, port=cfg.imap_port).login(cfg.imap_user, cfg.imap_password, cfg.imap_folder) as mb:
+                count = mb.folder.status(cfg.imap_folder).get('MESSAGES', 0)
+                return count
+        count = await loop.run_in_executor(_thread_pool, _test)
+        return {"success": True, "message": f"Verbindung erfolgreich. {count} E-Mails im Ordner '{cfg.imap_folder}'."}
+    except Exception as e:
+        return {"success": False, "message": f"Verbindungsfehler: {str(e)}"}
+
+@api_router.get("/email-inbox")
+async def get_email_inbox(
+    limit: int = 50,
+    status_filter: Optional[str] = None,
+    current_user: dict = Depends(require_accountant_or_above())
+):
+    """Get emails from inbox cache"""
+    query: dict = {}
+    if status_filter and status_filter != "all":
+        query["ai_status"] = status_filter
+    items = await db.email_inbox.find(query).sort("date", -1).limit(limit).to_list(limit)
+    result = []
+    for item in items:
+        item.pop("_id", None)
+        # Don't send attachment content in list view
+        for att in item.get("attachments", []):
+            att.pop("content_base64", None)
+        result.append(item)
+    return result
+
+@api_router.post("/email-inbox/poll")
+async def manual_poll_inbox(current_user: dict = Depends(require_accountant_or_above())):
+    """Manually trigger IMAP poll"""
+    new_count = await poll_imap_and_store()
+    return {"message": f"{new_count} neue E-Mail(s) abgerufen", "new_count": new_count}
+
+@api_router.post("/email-inbox/{item_id}/ai-check")
+async def trigger_ai_check(item_id: str, current_user: dict = Depends(require_accountant_or_above())):
+    """Trigger AI classification for a specific email"""
+    item = await db.email_inbox.find_one({"id": item_id})
+    if not item:
+        raise HTTPException(status_code=404, detail="E-Mail nicht gefunden")
+    asyncio.create_task(run_ai_classification_for_email(item_id))
+    return {"message": "KI-Prüfung gestartet"}
+
+@api_router.post("/email-inbox/{item_id}/import")
+async def import_email_attachment(item_id: str, attachment_index: int = 0, current_user: dict = Depends(require_accountant_or_above())):
+    """Import email attachment as invoice via OCR pipeline"""
+    item = await db.email_inbox.find_one({"id": item_id})
+    if not item:
+        raise HTTPException(status_code=404, detail="E-Mail nicht gefunden")
+    if item.get("imported"):
+        raise HTTPException(status_code=400, detail="Anhang wurde bereits importiert")
+
+    attachments = item.get("attachments", [])
+    if not attachments or attachment_index >= len(attachments):
+        raise HTTPException(status_code=400, detail="Kein Anhang vorhanden")
+
+    # Re-fetch with content_base64 (stored in DB)
+    att = attachments[attachment_index]
+    raw_b64 = att.get("content_base64")
+    if not raw_b64:
+        # Fetch full doc to get base64 content
+        full_doc = await db.email_inbox.find_one({"id": item_id})
+        att = full_doc.get("attachments", [])[attachment_index]
+        raw_b64 = att.get("content_base64", "")
+
+    if not raw_b64:
+        raise HTTPException(status_code=400, detail="Anhangsdaten nicht verfügbar")
+
+    content_type = att.get("content_type", "application/pdf")
+    image_base64 = f"data:{content_type};base64,{raw_b64}"
+
+    try:
+        invoice_data = await extract_invoice_with_ai(image_base64)
+        # Convert PDF first page to preview image
+        stored_image = image_base64
+        if 'pdf' in content_type.lower() or _is_pdf_base64(raw_b64):
+            try:
+                pdf_bytes = base64.b64decode(raw_b64)
+                doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+                page = doc.load_page(0)
+                pix = page.get_pixmap(matrix=fitz.Matrix(2.0, 2.0))
+                stored_image = f"data:image/png;base64,{base64.b64encode(pix.tobytes('png')).decode()}"
+                doc.close()
+            except Exception:
+                pass
+
+        invoice = Invoice(data=invoice_data, image_base64=stored_image, status=InvoiceStatus.PENDING)
+        invoice.search_text = generate_search_text(invoice_data.model_dump())
+        invoice.gobd_hash = generate_gobd_hash(invoice.model_dump())
+        await db.invoices.insert_one(invoice.model_dump())
+        await log_audit(invoice.id, "created", current_user.get("email", "system"), {"source": "email_import", "email_subject": item.get("subject", "")})
+
+        await db.email_inbox.update_one(
+            {"id": item_id},
+            {"$set": {"imported": True, "invoice_id": invoice.id, "imported_at": datetime.utcnow()}}
+        )
+        return {"message": "Rechnung erfolgreich importiert", "invoice_id": invoice.id}
+    except Exception as e:
+        logger.error(f"Email import error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.delete("/email-inbox/{item_id}")
+async def delete_inbox_item(item_id: str, current_user: dict = Depends(require_accountant_or_above())):
+    """Remove email from inbox cache"""
+    await db.email_inbox.delete_one({"id": item_id})
+    return {"message": "E-Mail aus Posteingangsliste entfernt"}
+
 @app.on_event("startup")
 async def startup_event():
     """Initialize settings and indexes on startup"""
@@ -2664,6 +3037,22 @@ async def startup_event():
         )
         await db.users.insert_one(admin.model_dump())
         logger.info("Default admin user created: admin@candis-kopie.de / admin123")
+
+    # Start IMAP scheduler
+    global _imap_scheduler
+    imap_cfg = await get_imap_settings()
+    interval = max(1, imap_cfg.poll_interval_minutes)
+    _imap_scheduler = AsyncIOScheduler()
+    _imap_scheduler.add_job(
+        poll_imap_and_store,
+        trigger="interval",
+        minutes=interval,
+        id="imap_poll",
+        replace_existing=True,
+        misfire_grace_time=60
+    )
+    _imap_scheduler.start()
+    logger.info(f"IMAP scheduler started (interval: {interval} min)")
 
 # ===================== DATEV UNTERNEHMEN ONLINE INTEGRATION =====================
 
