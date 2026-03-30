@@ -16,7 +16,6 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Picker } from '@react-native-picker/picker';
 import { apiService, Invoice, AuditLog, Account, CostCenter, InvoiceData } from '../../src/services/api';
 import useAuthStore from '../../src/store/authStore';
 import { formatCurrency, formatDate, formatDateTime } from '../../src/utils/formatters';
@@ -542,17 +541,41 @@ export default function InvoiceDetailScreen() {
             <Text style={styles.modalTitle}>Kontierung bearbeiten</Text>
             <Text style={styles.modalLabel}>Sachkonto ({activeKontenrahmen})</Text>
             <View style={styles.pickerContainer}>
-              <Picker selectedValue={selectedAccount} onValueChange={setSelectedAccount} style={styles.picker} dropdownIconColor="#fff">
-                <Picker.Item label="-- Konto wählen --" value="" />
-                {accounts.map((acc) => <Picker.Item key={acc.id} label={`${acc.number} - ${acc.name}`} value={acc.number} />)}
-              </Picker>
+              <ScrollView style={{ maxHeight: 160 }} nestedScrollEnabled>
+                {[{ number: '', name: '-- Konto wählen --' }, ...accounts].map((acc) => (
+                  <TouchableOpacity
+                    key={acc.number || 'empty'}
+                    style={[styles.pickerItem, selectedAccount === acc.number && styles.pickerItemActive]}
+                    onPress={() => setSelectedAccount(acc.number)}
+                  >
+                    <Text style={[styles.pickerItemText, selectedAccount === acc.number && styles.pickerItemTextActive]}>
+                      {acc.number ? `${acc.number} - ${acc.name}` : acc.name}
+                    </Text>
+                    {selectedAccount === acc.number && acc.number !== '' && (
+                      <Ionicons name="checkmark" size={16} color="#6c5ce7" />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
             </View>
             <Text style={styles.modalLabel}>Kostenstelle</Text>
             <View style={styles.pickerContainer}>
-              <Picker selectedValue={selectedCostCenter} onValueChange={setSelectedCostCenter} style={styles.picker} dropdownIconColor="#fff">
-                <Picker.Item label="-- Keine Kostenstelle --" value="" />
-                {costCenters.map((cc) => <Picker.Item key={cc.id} label={`${cc.number} - ${cc.name}`} value={cc.number} />)}
-              </Picker>
+              <ScrollView style={{ maxHeight: 120 }} nestedScrollEnabled>
+                {[{ number: '', name: '-- Keine Kostenstelle --' }, ...costCenters].map((cc) => (
+                  <TouchableOpacity
+                    key={cc.number || 'empty'}
+                    style={[styles.pickerItem, selectedCostCenter === cc.number && styles.pickerItemActive]}
+                    onPress={() => setSelectedCostCenter(cc.number)}
+                  >
+                    <Text style={[styles.pickerItemText, selectedCostCenter === cc.number && styles.pickerItemTextActive]}>
+                      {cc.number ? `${cc.number} - ${cc.name}` : cc.name}
+                    </Text>
+                    {selectedCostCenter === cc.number && cc.number !== '' && (
+                      <Ionicons name="checkmark" size={16} color="#6c5ce7" />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
             </View>
             <Text style={styles.modalLabel}>Buchungstext</Text>
             <TextInput style={styles.modalInput} value={bookingText} onChangeText={setBookingText}
@@ -713,8 +736,11 @@ const styles = StyleSheet.create({
   desktopModalContent: { maxWidth: 500, alignSelf: 'center', width: '100%' },
   modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#fff', marginBottom: 16 },
   modalLabel: { fontSize: 14, color: '#a0a0a0', marginBottom: 8, marginTop: 12 },
-  pickerContainer: { backgroundColor: '#0f0f1a', borderRadius: 8, borderWidth: 1, borderColor: '#2d2d44', overflow: 'hidden' },
-  picker: { color: '#fff', height: 50 },
+  pickerContainer: { backgroundColor: '#1a1a2e', borderRadius: 8, borderWidth: 1, borderColor: '#2d2d44', overflow: 'hidden', marginBottom: 4 },
+  pickerItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 11, borderBottomWidth: 1, borderBottomColor: '#2d2d44' },
+  pickerItemActive: { backgroundColor: '#2d2d44' },
+  pickerItemText: { color: '#b2bec3', fontSize: 14, flex: 1 },
+  pickerItemTextActive: { color: '#fff', fontWeight: '600' },
   modalInput: { backgroundColor: '#0f0f1a', borderRadius: 8, padding: 12, fontSize: 16, color: '#fff', borderWidth: 1, borderColor: '#2d2d44' },
   modalButtons: { flexDirection: 'row', marginTop: 20, gap: 12 },
   modalCancelButton: { flex: 1, padding: 14, borderRadius: 8, backgroundColor: '#2d2d44', alignItems: 'center' },
