@@ -77,6 +77,16 @@ export default function EmailInboxScreen() {
   const [newMatchType, setNewMatchType] = useState<'domain' | 'email' | 'contains'>('domain');
   const [savingRule, setSavingRule] = useState(false);
 
+  // Expanded cards
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const toggleExpand = (id: string) => {
+    setExpandedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
   // Report
   const [showReport, setShowReport] = useState(false);
   const [reportPeriod, setReportPeriod] = useState<'day' | 'week'>('day');
@@ -239,7 +249,8 @@ export default function EmailInboxScreen() {
 
   const renderCard = (item: EmailItem) => {
     const badge = AI_BADGE[item.ai_status] || AI_BADGE.pending;
-    const isSelected = selected.has(item.id);
+    const isSelected  = selected.has(item.id);
+    const isExpanded  = expandedIds.has(item.id);
     const isImporting = actionLoading === `import_${item.id}`;
     const isChecking  = actionLoading === `ai_${item.id}`;
     const isDeleting  = actionLoading === `del_${item.id}`;
@@ -249,29 +260,26 @@ export default function EmailInboxScreen() {
       <TouchableOpacity
         key={item.id}
         style={[styles.card, isSelected && styles.cardSelected, item.imported && styles.cardImported]}
-        onPress={canSelect ? () => toggleSelect(item.id) : undefined}
-        activeOpacity={canSelect ? 0.7 : 1}
+        onPress={() => {
+          if (canSelect) { toggleSelect(item.id); return; }
+          toggleExpand(item.id);
+        }}
+        activeOpacity={0.85}
       >
+        {/* ===== ZUSAMMENGEKLAPPT: immer sichtbar ===== */}
         <View style={styles.cardRow}>
-          {/* Checkbox – nur für nicht-importierte im Auswahlmodus */}
+          {/* Checkbox im Auswahlmodus */}
           {selectMode && (
             <View style={styles.checkboxWrap}>
-              {item.imported ? (
-                <Ionicons name="lock-closed" size={18} color="#636e72" />
-              ) : (
-                <TouchableOpacity onPress={() => toggleSelect(item.id)}>
-                  <Ionicons
-                    name={isSelected ? 'checkbox' : 'square-outline'}
-                    size={22}
-                    color={isSelected ? '#6c5ce7' : '#636e72'}
-                  />
-                </TouchableOpacity>
-              )}
+              {item.imported
+                ? <Ionicons name="lock-closed" size={18} color="#636e72" />
+                : <Ionicons name={isSelected ? 'checkbox' : 'square-outline'} size={22} color={isSelected ? '#6c5ce7' : '#636e72'} />
+              }
             </View>
           )}
 
           <View style={{ flex: 1 }}>
-            {/* AI Badge + Imported Banner + Datum */}
+            {/* Zeile 1: AI Badge + Datum + Expand-Pfeil */}
             <View style={styles.cardHeader}>
               <View style={[styles.aiBadge, { backgroundColor: badge.bg }]}>
                 <Ionicons name={badge.icon as any} size={12} color={badge.color} />
@@ -287,23 +295,37 @@ export default function EmailInboxScreen() {
                 </View>
               )}
               <Text style={styles.dateText}>{fmtDate(item.date)}</Text>
+              <Ionicons
+                name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                size={15}
+                color="#636e72"
+                style={{ marginLeft: 4 }}
+              />
             </View>
 
-            {/* "Bereits importiert" Banner */}
+            {/* Zeile 2: Betreff (kompakt) */}
+            <Text style={styles.subject} numberOfLines={isExpanded ? undefined : 1}>
+              {item.subject}
+            </Text>
+            {/* Zeile 3: Absender (immer 1 Zeile) */}
+            <Text style={styles.sender} numberOfLines={1}>📤 {item.sender}</Text>
+          </View>
+        </View>
+
+        {/* ===== AUSGEKLAPPT: nur wenn isExpanded ===== */}
+        {isExpanded && (
+          <View style={styles.expandedBody}>
+            {/* Banner: bereits importiert */}
             {item.imported && (
               <View style={styles.alreadyImportedBanner}>
                 <Ionicons name="information-circle" size={14} color="#6c5ce7" />
                 <Text style={styles.alreadyImportedText}>
-                  Diese Rechnung wurde bereits am {item.imported_at ? fmtDate(item.imported_at) : '–'} importiert.
+                  Importiert am {item.imported_at ? fmtDate(item.imported_at) : '–'}. Kein erneuter Import möglich.
                 </Text>
               </View>
             )}
 
-            {/* Subject + Sender */}
-            <Text style={styles.subject} numberOfLines={1}>{item.subject}</Text>
-            <Text style={styles.sender} numberOfLines={1}>📤 {item.sender}</Text>
-
-            {/* AI Details */}
+            {/* KI-Details */}
             {item.ai_details && item.ai_status !== 'not_invoice' && (
               <View style={styles.aiDetails}>
                 {item.ai_details.vendor_name && <Text style={styles.aiDetailText}>🏢 {item.ai_details.vendor_name}</Text>}
@@ -311,14 +333,14 @@ export default function EmailInboxScreen() {
                   <Text style={styles.aiDetailText}>💶 {fmtEuro(item.ai_details.gross_amount)}</Text>
                 ) : null}
                 {item.ai_details.reason && (
-                  <Text style={styles.aiReasonText} numberOfLines={1}>{item.ai_details.reason}</Text>
+                  <Text style={styles.aiReasonText} numberOfLines={2}>{item.ai_details.reason}</Text>
                 )}
               </View>
             )}
 
-            {/* Attachments */}
+            {/* Anhänge */}
             <View style={styles.attachRow}>
-              {item.attachments.slice(0, 3).map((att, i) => (
+              {item.attachments.map((att, i) => (
                 <View key={i} style={styles.attachChip}>
                   <Ionicons name={att.content_type?.includes('pdf') ? 'document-text' : 'image'} size={11} color="#a0a0a0" />
                   <Text style={styles.attachName} numberOfLines={1}>{att.filename}</Text>
@@ -327,7 +349,7 @@ export default function EmailInboxScreen() {
               ))}
             </View>
 
-            {/* Actions – nur für NICHT importierte */}
+            {/* Aktions-Buttons – nur für nicht importierte */}
             {!item.imported && !selectMode && (
               <View style={styles.actions}>
                 {item.ai_status === 'pending' && (
@@ -352,7 +374,7 @@ export default function EmailInboxScreen() {
               </View>
             )}
           </View>
-        </View>
+        )}
       </TouchableOpacity>
     );
   };
@@ -652,6 +674,7 @@ const styles = StyleSheet.create({
   cardImported: { borderColor: '#6c5ce730', backgroundColor: '#1a1a2e' },
   cardRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   checkboxWrap: { paddingTop: 2, width: 26, alignItems: 'center' },
+  expandedBody: { marginTop: 12, borderTopWidth: 1, borderTopColor: '#2d2d44', paddingTop: 12, gap: 8 },
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6, flexWrap: 'wrap' },
   aiBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 },
   aiBadgeText: { fontSize: 11, fontWeight: '600' },
