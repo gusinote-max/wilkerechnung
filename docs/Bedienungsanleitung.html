@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bedienungsanleitung – Wilke Rechnung (Candis-Kopie)</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 15px; color: #222; background: #fff; line-height: 1.7; }
+  .cover { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); color: #fff; padding: 80px 60px; min-height: 300px; }
+  .cover h1 { font-size: 42px; font-weight: 700; margin-bottom: 12px; }
+  .cover .subtitle { font-size: 20px; opacity: 0.8; margin-bottom: 32px; }
+  .cover .meta { font-size: 13px; opacity: 0.6; border-top: 1px solid rgba(255,255,255,0.2); padding-top: 20px; margin-top: 40px; }
+  .toc { background: #f8f9fa; padding: 40px 60px; border-bottom: 2px solid #e9ecef; }
+  .toc h2 { font-size: 22px; margin-bottom: 20px; color: #1a1a2e; }
+  .toc ol { padding-left: 20px; }
+  .toc li { margin: 8px 0; }
+  .toc a { color: #0f3460; text-decoration: none; font-size: 14px; }
+  .toc a:hover { text-decoration: underline; }
+  .content { max-width: 900px; margin: 0 auto; padding: 40px 60px; }
+  h2.section { font-size: 26px; color: #1a1a2e; border-left: 5px solid #0f3460; padding-left: 16px; margin: 50px 0 20px; }
+  h3 { font-size: 18px; color: #16213e; margin: 28px 0 12px; }
+  h4 { font-size: 15px; color: #444; margin: 18px 0 8px; font-weight: 600; }
+  p { margin-bottom: 12px; }
+  ul, ol { padding-left: 24px; margin-bottom: 14px; }
+  li { margin: 6px 0; }
+  .tip { background: #e8f4fd; border-left: 4px solid #0f3460; padding: 14px 18px; margin: 16px 0; border-radius: 0 6px 6px 0; }
+  .tip strong { color: #0f3460; }
+  .warn { background: #fff8e1; border-left: 4px solid #f39c12; padding: 14px 18px; margin: 16px 0; border-radius: 0 6px 6px 0; }
+  .warn strong { color: #e67e22; }
+  .success { background: #e8f8f5; border-left: 4px solid #27ae60; padding: 14px 18px; margin: 16px 0; border-radius: 0 6px 6px 0; }
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px; }
+  th { background: #1a1a2e; color: #fff; padding: 10px 14px; text-align: left; }
+  td { padding: 9px 14px; border-bottom: 1px solid #e9ecef; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+  .badge-admin { background: #ffeaa7; color: #856404; }
+  .badge-manager { background: #c3e6cb; color: #155724; }
+  .badge-buchhalter { background: #bee5eb; color: #0c5460; }
+  .badge-viewer { background: #e2e3e5; color: #383d41; }
+  .step { display: flex; gap: 14px; margin: 12px 0; align-items: flex-start; }
+  .step-num { background: #0f3460; color: #fff; border-radius: 50%; width: 28px; height: 28px; min-width: 28px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; margin-top: 2px; }
+  .step-content { flex: 1; }
+  code { background: #f1f3f5; padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 13px; color: #c0392b; }
+  .page-break { page-break-before: always; }
+  hr { border: none; border-top: 1px solid #e9ecef; margin: 40px 0; }
+  footer { background: #1a1a2e; color: rgba(255,255,255,0.6); text-align: center; padding: 24px; font-size: 13px; margin-top: 60px; }
+  @media print {
+    .cover { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .page-break { page-break-before: always; }
+    body { font-size: 13px; }
+    .content { padding: 20px 30px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- TITELSEITE -->
+<div class="cover">
+  <div style="font-size:13px;opacity:0.7;margin-bottom:12px;">BEDIENUNGSANLEITUNG</div>
+  <h1>Wilke Rechnung</h1>
+  <div class="subtitle">KI-gestützte Rechnungsverwaltung</div>
+  <p style="opacity:0.75;max-width:540px;">Vollständige Anleitung für Administratoren, Buchhalter und alle weiteren Benutzer. Dieses Dokument beschreibt alle Funktionen der Anwendung und deren Bedienung.</p>
+  <div class="meta">
+    Version 1.0 &nbsp;|&nbsp; Stand: März 2026 &nbsp;|&nbsp; Sprache: Deutsch
+  </div>
+</div>
+
+<!-- INHALTSVERZEICHNIS -->
+<div class="toc">
+  <h2>Inhaltsverzeichnis</h2>
+  <ol>
+    <li><a href="#s1">Systemübersicht &amp; Erste Schritte</a></li>
+    <li><a href="#s2">Login &amp; Benutzerrollen</a></li>
+    <li><a href="#s3">Dashboard</a></li>
+    <li><a href="#s4">Rechnungen hochladen &amp; KI-Analyse</a></li>
+    <li><a href="#s5">Rechnungsliste &amp; Suche</a></li>
+    <li><a href="#s6">Rechnungsdetail &amp; Bearbeitung</a></li>
+    <li><a href="#s7">Kontierung (Sachkonto)</a></li>
+    <li><a href="#s8">Genehmigungsworkflow</a></li>
+    <li><a href="#s9">DATEV-Export</a></li>
+    <li><a href="#s10">SEPA-Banking &amp; Zahlungen</a></li>
+    <li><a href="#s11">E-Mail Posteingang</a></li>
+    <li><a href="#s12">Einstellungen</a></li>
+    <li><a href="#s13">Benutzer verwalten</a></li>
+    <li><a href="#s14">Häufige Fragen (FAQ)</a></li>
+  </ol>
+</div>
+
+<div class="content">
+
+<!-- 1. SYSTEMÜBERSICHT -->
+<h2 class="section" id="s1">1. Systemübersicht &amp; Erste Schritte</h2>
+
+<p><strong>Wilke Rechnung</strong> ist eine webbasierte Anwendung zur intelligenten Rechnungsverwaltung. Rechnungen werden per Upload oder automatisch per E-Mail erfasst, per KI analysiert und über einen konfigurierbaren Genehmigungsworkflow verarbeitet.</p>
+
+<h3>Was kann die Anwendung?</h3>
+<ul>
+  <li>📄 <strong>Rechnungen erfassen</strong> – per PDF-Upload oder automatisch aus dem E-Mail-Posteingang</li>
+  <li>🤖 <strong>KI-Analyse (OCR)</strong> – automatische Erkennung von Betrag, Datum, Lieferant, Steuern</li>
+  <li>✅ <strong>Genehmigungsworkflow</strong> – mehrstufige Freigabe mit Rollen</li>
+  <li>📊 <strong>DATEV-Export</strong> – Buchungsdaten für Ihren Steuerberater</li>
+  <li>🏦 <strong>SEPA-Zahlungen</strong> – Überweisungen direkt aus der App</li>
+  <li>📧 <strong>E-Mail-Import</strong> – automatischer Abruf von Rechnungs-E-Mails per IMAP</li>
+  <li>👥 <strong>Benutzerverwaltung</strong> – Rollen und Zugriffsrechte</li>
+</ul>
+
+<h3>Systemzugang</h3>
+<table>
+  <tr><th>Bereich</th><th>Adresse</th></tr>
+  <tr><td>Webanwendung</td><td><code>http://IhreServerIP:8080</code></td></tr>
+  <tr><td>Standard-Login</td><td><code>admin@candis-kopie.de</code> / <code>admin123</code></td></tr>
+</table>
+
+<div class="warn">
+  <strong>⚠️ Wichtig:</strong> Bitte ändern Sie das Standard-Passwort nach dem ersten Login unter <em>Einstellungen → Benutzer</em>.
+</div>
+
+<hr>
+
+<!-- 2. LOGIN & ROLLEN -->
+<h2 class="section" id="s2">2. Login &amp; Benutzerrollen</h2>
+
+<h3>Anmelden</h3>
+<div class="step"><div class="step-num">1</div><div class="step-content">Öffnen Sie die Webanwendung im Browser</div></div>
+<div class="step"><div class="step-num">2</div><div class="step-content">Geben Sie Ihre <strong>E-Mail-Adresse</strong> und Ihr <strong>Passwort</strong> ein</div></div>
+<div class="step"><div class="step-num">3</div><div class="step-content">Klicken Sie auf <strong>„Anmelden"</strong></div></div>
+<div class="step"><div class="step-num">4</div><div class="step-content">Sie werden automatisch zum Dashboard weitergeleitet</div></div>
+
+<h3>Benutzerrollen im Überblick</h3>
+<p>Jeder Benutzer hat eine Rolle, die bestimmt was er sehen und tun darf:</p>
+
+<table>
+  <tr><th>Rolle</th><th>Beschreibung</th></tr>
+  <tr><td><span class="badge badge-admin">Administrator</span></td><td>Vollzugriff auf alle Funktionen inkl. Einstellungen und Benutzerverwaltung</td></tr>
+  <tr><td><span class="badge badge-manager">Manager</span></td><td>Kann Rechnungen hochladen, genehmigen, DATEV-Export und Zahlungen durchführen</td></tr>
+  <tr><td><span class="badge badge-buchhalter">Buchhalter</span></td><td>Kann Rechnungen hochladen, kontieren, DATEV-Export und Zahlungen durchführen – aber nicht genehmigen</td></tr>
+  <tr><td><span class="badge badge-viewer">Betrachter</span></td><td>Nur Lesen – kann Rechnungen ansehen aber nichts ändern</td></tr>
+</table>
+
+<h3>Berechtigungsmatrix</h3>
+<table>
+  <tr><th>Funktion</th><th>Admin</th><th>Manager</th><th>Buchhalter</th><th>Betrachter</th></tr>
+  <tr><td>Rechnungen ansehen</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td></tr>
+  <tr><td>Rechnungen hochladen</td><td>✅</td><td>✅</td><td>✅</td><td>❌</td></tr>
+  <tr><td>KI-Analyse starten</td><td>✅</td><td>✅</td><td>✅</td><td>❌</td></tr>
+  <tr><td>Genehmigen / Ablehnen</td><td>✅</td><td>✅</td><td>❌</td><td>❌</td></tr>
+  <tr><td>DATEV-Export</td><td>✅</td><td>✅</td><td>✅</td><td>❌</td></tr>
+  <tr><td>Zahlungen auslösen</td><td>✅</td><td>✅</td><td>✅</td><td>❌</td></tr>
+  <tr><td>Rechnungen löschen</td><td>✅</td><td>❌</td><td>❌</td><td>❌</td></tr>
+  <tr><td>Einstellungen</td><td>✅</td><td>❌</td><td>❌</td><td>❌</td></tr>
+  <tr><td>Benutzerverwaltung</td><td>✅</td><td>❌</td><td>❌</td><td>❌</td></tr>
+</table>
+
+<hr>
+
+<!-- 3. DASHBOARD -->
+<h2 class="section" id="s3">3. Dashboard</h2>
+
+<p>Das Dashboard ist die Startseite nach dem Login und zeigt alle wichtigen Kennzahlen auf einen Blick.</p>
+
+<h3>Kennzahlen-Karten</h3>
+<table>
+  <tr><th>Karte</th><th>Bedeutung</th></tr>
+  <tr><td>Gesamt</td><td>Anzahl aller Rechnungen im System</td></tr>
+  <tr><td>Ausstehend</td><td>Rechnungen die noch genehmigt werden müssen</td></tr>
+  <tr><td>Genehmigt</td><td>Freigegebene Rechnungen</td></tr>
+  <tr><td>Bezahlt</td><td>Bereits bezahlte Rechnungen</td></tr>
+  <tr><td>Gesamtbetrag</td><td>Summe aller Rechnungsbeträge</td></tr>
+</table>
+
+<h3>Letzte Rechnungen</h3>
+<p>Unterhalb der Kennzahlen sehen Sie die zuletzt hinzugefügten Rechnungen. Ein Klick öffnet die Detailansicht.</p>
+
+<div class="tip">
+  <strong>💡 Tipp:</strong> Das Dashboard aktualisiert sich automatisch. Bei vielen Rechnungen können Sie nach unten scrollen um alle zu sehen.
+</div>
+
+<hr>
+
+<!-- 4. RECHNUNG HOCHLADEN -->
+<h2 class="section" id="s4">4. Rechnungen hochladen &amp; KI-Analyse</h2>
+
+<h3>Rechnung manuell hochladen</h3>
+<div class="step"><div class="step-num">1</div><div class="step-content">Klicken Sie oben rechts auf <strong>„Rechnung hochladen"</strong></div></div>
+<div class="step"><div class="step-num">2</div><div class="step-content">Wählen Sie eine <strong>PDF-Datei</strong> von Ihrem Computer aus</div></div>
+<div class="step"><div class="step-num">3</div><div class="step-content">Die Rechnung wird hochgeladen und erscheint in der Liste mit dem Status <strong>„Ausstehend"</strong></div></div>
+<div class="step"><div class="step-num">4</div><div class="step-content">Klicken Sie auf die Rechnung und dann auf <strong>„KI-Analyse"</strong> um Daten automatisch zu extrahieren</div></div>
+
+<h3>Was erkennt die KI automatisch?</h3>
+<ul>
+  <li>Lieferantenname und Adresse</li>
+  <li>Rechnungsnummer und Rechnungsdatum</li>
+  <li>Nettobetrag, Steuerbetrag, Bruttobetrag</li>
+  <li>Steuernummer / USt-IdNr.</li>
+  <li>IBAN / Bankverbindung</li>
+  <li>Zahlungsziel</li>
+</ul>
+
+<div class="tip">
+  <strong>💡 Tipp:</strong> Die KI-Erkennung funktioniert am besten bei klaren, digitalen PDFs. Gescannte Dokumente in schlechter Qualität können zu Fehlern führen – bitte in solchen Fällen die Felder manuell prüfen und korrigieren.
+</div>
+
+<h3>Unterstützte Formate</h3>
+<ul>
+  <li>PDF (empfohlen)</li>
+  <li>ZUGFeRD / XRechnung (E-Rechnungen im XML-Format)</li>
+</ul>
+
+<hr>
+
+<!-- 5. RECHNUNGSLISTE -->
+<h2 class="section" id="s5">5. Rechnungsliste &amp; Suche</h2>
+
+<p>Die Rechnungsliste zeigt alle erfassten Rechnungen. Sie erreichen sie über den Tab <strong>„Rechnungen"</strong>.</p>
+
+<h3>Statusarten</h3>
+<table>
+  <tr><th>Status</th><th>Bedeutung</th></tr>
+  <tr><td>🟡 Ausstehend</td><td>Neu erfasst, wartet auf Bearbeitung</td></tr>
+  <tr><td>🔵 In Prüfung</td><td>Wird gerade im Workflow bearbeitet</td></tr>
+  <tr><td>🟢 Genehmigt</td><td>Freigegeben durch berechtigten Benutzer</td></tr>
+  <tr><td>🔴 Abgelehnt</td><td>Abgelehnt mit Begründung</td></tr>
+  <tr><td>✅ Bezahlt</td><td>Zahlung wurde ausgelöst</td></tr>
+  <tr><td>📁 Archiviert</td><td>GoBD-konform archiviert</td></tr>
+</table>
+
+<h3>Suchen &amp; Filtern</h3>
+<ul>
+  <li><strong>Suchfeld:</strong> Suche nach Lieferantenname, Rechnungsnummer oder Betrag</li>
+  <li><strong>Status-Filter:</strong> Nur Rechnungen eines bestimmten Status anzeigen</li>
+  <li><strong>Sortierung:</strong> Nach Datum, Betrag oder Status sortieren</li>
+</ul>
+
+<hr>
+
+<!-- 6. RECHNUNGSDETAIL -->
+<h2 class="section" id="s6">6. Rechnungsdetail &amp; Bearbeitung</h2>
+
+<p>Ein Klick auf eine Rechnung öffnet die Detailansicht mit allen Informationen.</p>
+
+<h3>Verfügbare Aktionen</h3>
+<table>
+  <tr><th>Aktion</th><th>Beschreibung</th><th>Rolle</th></tr>
+  <tr><td>KI-Analyse</td><td>Daten automatisch per KI extrahieren</td><td>Admin, Manager, Buchhalter</td></tr>
+  <tr><td>Bearbeiten</td><td>Felder manuell korrigieren</td><td>Admin, Manager, Buchhalter</td></tr>
+  <tr><td>Genehmigen</td><td>Rechnung freigeben (erst nach Kontierung möglich)</td><td>Admin, Manager</td></tr>
+  <tr><td>Ablehnen</td><td>Rechnung ablehnen mit Begründung</td><td>Admin, Manager</td></tr>
+  <tr><td>DATEV Export</td><td>Buchungsdatei erstellen</td><td>Admin, Manager, Buchhalter</td></tr>
+  <tr><td>Zahlung auslösen</td><td>SEPA-Überweisung initiieren</td><td>Admin, Manager, Buchhalter</td></tr>
+  <tr><td>Archivieren</td><td>GoBD-konform archivieren</td><td>Admin, Manager</td></tr>
+  <tr><td>Löschen</td><td>Rechnung endgültig löschen</td><td>Nur Admin</td></tr>
+</table>
+
+<hr>
+
+<!-- 7. KONTIERUNG -->
+<h2 class="section" id="s7">7. Kontierung (Sachkonto)</h2>
+
+<p>Vor der Genehmigung einer Rechnung <strong>muss</strong> ein Sachkonto (Kontierung) hinterlegt werden. Dies ist eine gesetzliche Anforderung für GoBD-konforme Buchhaltung.</p>
+
+<h3>Sachkonto zuweisen</h3>
+<div class="step"><div class="step-num">1</div><div class="step-content">Öffnen Sie die Rechnungsdetailansicht</div></div>
+<div class="step"><div class="step-num">2</div><div class="step-content">Scrollen Sie zum Bereich <strong>„Kontierung"</strong></div></div>
+<div class="step"><div class="step-num">3</div><div class="step-content">Wählen Sie das passende <strong>Sachkonto</strong> aus (SKR03 oder SKR04)</div></div>
+<div class="step"><div class="step-num">4</div><div class="step-content">Optional: Wählen Sie eine <strong>Kostenstelle</strong> aus</div></div>
+<div class="step"><div class="step-num">5</div><div class="step-content">Speichern Sie die Kontierung</div></div>
+
+<div class="warn">
+  <strong>⚠️ Hinweis:</strong> Der „Genehmigen"-Button ist gesperrt solange keine Kontierung hinterlegt ist. Es erscheint der Hinweis: <em>„Kontierung fehlt – bitte zuerst Sachkonto hinterlegen"</em>.
+</div>
+
+<h3>Kontenrahmen</h3>
+<p>Die Anwendung unterstützt drei Kontenrahmen:</p>
+<ul>
+  <li><strong>SKR03</strong> – Standardkontenrahmen für kleine und mittlere Unternehmen</li>
+  <li><strong>SKR04</strong> – Industriekontenrahmen</li>
+  <li><strong>SKR51</strong> – KFZ-Branche</li>
+</ul>
+
+<hr>
+
+<!-- 8. GENEHMIGUNGSWORKFLOW -->
+<h2 class="section" id="s8">8. Genehmigungsworkflow</h2>
+
+<h3>Ablauf einer Rechnung</h3>
+<div style="background:#f8f9fa;border-radius:8px;padding:20px;margin:16px 0;font-size:14px;">
+  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+    <div style="background:#ffeaa7;padding:8px 16px;border-radius:20px;font-weight:600;">📄 Erfasst</div>
+    <div>→</div>
+    <div style="background:#bee5eb;padding:8px 16px;border-radius:20px;font-weight:600;">✏️ Kontiert</div>
+    <div>→</div>
+    <div style="background:#c3e6cb;padding:8px 16px;border-radius:20px;font-weight:600;">✅ Genehmigt</div>
+    <div>→</div>
+    <div style="background:#d4edda;padding:8px 16px;border-radius:20px;font-weight:600;">💳 Bezahlt</div>
+    <div>→</div>
+    <div style="background:#e2e3e5;padding:8px 16px;border-radius:20px;font-weight:600;">📁 Archiviert</div>
+  </div>
+</div>
+
+<h3>Rechnung genehmigen</h3>
+<div class="step"><div class="step-num">1</div><div class="step-content">Öffnen Sie die Rechnungsdetailansicht</div></div>
+<div class="step"><div class="step-num">2</div><div class="step-content">Stellen Sie sicher, dass ein <strong>Sachkonto</strong> hinterlegt ist</div></div>
+<div class="step"><div class="step-num">3</div><div class="step-content">Klicken Sie auf <strong>„Genehmigen"</strong></div></div>
+<div class="step"><div class="step-num">4</div><div class="step-content">Der Status wechselt zu <strong>„Genehmigt"</strong></div></div>
+
+<h3>Rechnung ablehnen</h3>
+<div class="step"><div class="step-num">1</div><div class="step-content">Klicken Sie auf <strong>„Ablehnen"</strong></div></div>
+<div class="step"><div class="step-num">2</div><div class="step-content">Geben Sie eine <strong>Begründung</strong> ein (Pflichtfeld)</div></div>
+<div class="step"><div class="step-num">3</div><div class="step-content">Bestätigen Sie – der Status wechselt zu <strong>„Abgelehnt"</strong></div></div>
+
+<h3>Mehrstufige Workflows</h3>
+<p>In den Einstellungen können mehrstufige Genehmigungsworkflows konfiguriert werden, bei denen mehrere Personen nacheinander genehmigen müssen. Dies eignet sich für Rechnungen ab einem bestimmten Betrag.</p>
+
+<hr>
+
+<!-- 9. DATEV -->
+<h2 class="section" id="s9">9. DATEV-Export</h2>
+
+<p>Genehmigte Rechnungen können für die Übergabe an Ihren Steuerberater als DATEV-Buchungsdatei exportiert werden.</p>
+
+<h3>Einzelexport</h3>
+<div class="step"><div class="step-num">1</div><div class="step-content">Öffnen Sie eine genehmigte Rechnung</div></div>
+<div class="step"><div class="step-num">2</div><div class="step-content">Klicken Sie auf <strong>„DATEV Export"</strong></div></div>
+<div class="step"><div class="step-num">3</div><div class="step-content">Die Buchungsdatei wird erstellt und steht zum Download bereit</div></div>
+
+<h3>DATEV-Einstellungen konfigurieren</h3>
+<p>Unter <em>Einstellungen → DATEV</em> können Sie konfigurieren:</p>
+<ul>
+  <li>Mandantennummer</li>
+  <li>Beraternummer</li>
+  <li>Wirtschaftsjahr</li>
+  <li>Exportformat (DATEV ASCII / CSV)</li>
+</ul>
+
+<div class="tip">
+  <strong>💡 Hinweis:</strong> Der DATEV-Export ist aktuell als Simulation implementiert. Für die direkte Anbindung an DATEV Unternehmen online wenden Sie sich bitte an den Administrator.
+</div>
+
+<hr>
+
+<!-- 10. SEPA BANKING -->
+<h2 class="section" id="s10">10. SEPA-Banking &amp; Zahlungen</h2>
+
+<p>Aus genehmigten Rechnungen können direkt SEPA-Überweisungen ausgelöst werden.</p>
+
+<h3>Zahlung auslösen</h3>
+<div class="step"><div class="step-num">1</div><div class="step-content">Öffnen Sie eine genehmigte Rechnung</div></div>
+<div class="step"><div class="step-num">2</div><div class="step-content">Klicken Sie auf <strong>„Zahlung auslösen"</strong></div></div>
+<div class="step"><div class="step-num">3</div><div class="step-content">Prüfen Sie IBAN und Betrag</div></div>
+<div class="step"><div class="step-num">4</div><div class="step-content">Bestätigen Sie die Überweisung</div></div>
+<div class="step"><div class="step-num">5</div><div class="step-content">Der Status wechselt zu <strong>„Bezahlt"</strong></div></div>
+
+<div class="tip">
+  <strong>💡 Hinweis:</strong> Das SEPA-Banking ist aktuell als Simulation implementiert. Für die direkte Bankanbindung (FinAPI/EBICS) wenden Sie sich bitte an den Administrator.
+</div>
+
+<hr>
+
+<!-- 11. EMAIL POSTEINGANG -->
+<h2 class="section" id="s11">11. E-Mail Posteingang</h2>
+
+<p>Die Anwendung kann automatisch Rechnungen aus einem E-Mail-Postfach abrufen (IMAP). Eingehende Mails mit Anhängen werden per KI vorgeprüft.</p>
+
+<h3>Posteingang öffnen</h3>
+<p>Klicken Sie in der Navigation auf <strong>„Posteingang"</strong>.</p>
+
+<h3>E-Mails importieren</h3>
+<div class="step"><div class="step-num">1</div><div class="step-content">Wählen Sie eine oder mehrere E-Mails mit dem Häkchen aus</div></div>
+<div class="step"><div class="step-num">2</div><div class="step-content">Klicken Sie auf <strong>„Importieren"</strong></div></div>
+<div class="step"><div class="step-num">3</div><div class="step-content">Die Anhänge werden als Rechnungen in das System übernommen</div></div>
+
+<h3>KI-Vorabprüfung</h3>
+<p>Jede eingehende E-Mail wird automatisch per KI analysiert:</p>
+<ul>
+  <li>🟢 <strong>Rechnung erkannt</strong> – hohe Wahrscheinlichkeit, dass es eine Rechnung ist</li>
+  <li>🟡 <strong>Unsicher</strong> – bitte manuell prüfen</li>
+  <li>🔴 <strong>Keine Rechnung</strong> – wahrscheinlich kein relevantes Dokument</li>
+</ul>
+
+<h3>Absender-Regeln</h3>
+<p>Unter <em>Einstellungen → E-Mail</em> können Sie Absender-Regeln definieren:</p>
+<ul>
+  <li><strong>Vertrauenswürdige Absender</strong> – werden automatisch importiert</li>
+  <li><strong>Blockierte Absender</strong> – werden automatisch archiviert</li>
+</ul>
+
+<hr>
+
+<!-- 12. EINSTELLUNGEN -->
+<div class="page-break"></div>
+<h2 class="section" id="s12">12. Einstellungen</h2>
+
+<p>Die Einstellungen sind nur für <span class="badge badge-admin">Administratoren</span> zugänglich. Sie finden sie im Tab <strong>„Einstellungen"</strong>.</p>
+
+<h3>12.1 Allgemeine Einstellungen</h3>
+<table>
+  <tr><th>Einstellung</th><th>Beschreibung</th></tr>
+  <tr><td>Unternehmensname</td><td>Wird in Exporten und Belegen verwendet</td></tr>
+  <tr><td>Steuernummer</td><td>Für DATEV-Export</td></tr>
+  <tr><td>Kontenrahmen</td><td>SKR03, SKR04 oder SKR51</td></tr>
+  <tr><td>Standardwährung</td><td>EUR (Standard)</td></tr>
+</table>
+
+<h3>12.2 KI-Einstellungen</h3>
+<p>Hier wird der API-Schlüssel für die KI-gestützte Rechnungsanalyse hinterlegt:</p>
+<ul>
+  <li><strong>OpenRouter API Key</strong> – für Zugriff auf KI-Modelle</li>
+  <li><strong>KI-Modell</strong> – Auswahl des verwendeten Sprachmodells</li>
+  <li><strong>Verbindung testen</strong> – prüft ob der Key korrekt ist</li>
+</ul>
+
+<h3>12.3 E-Mail / IMAP Einstellungen</h3>
+<table>
+  <tr><th>Feld</th><th>Beispiel</th></tr>
+  <tr><td>IMAP-Server</td><td><code>imap.gmail.com</code></td></tr>
+  <tr><td>Port</td><td><code>993</code> (SSL) oder <code>143</code> (STARTTLS)</td></tr>
+  <tr><td>Benutzername</td><td><code>rechnungen@IhrFirma.de</code></td></tr>
+  <tr><td>Passwort</td><td>E-Mail-Passwort oder App-Passwort</td></tr>
+  <tr><td>Ordner</td><td><code>INBOX</code></td></tr>
+  <tr><td>Abruf-Intervall</td><td>z.B. alle 15 Minuten</td></tr>
+</table>
+
+<div class="tip">
+  <strong>💡 Gmail-Tipp:</strong> Bei Gmail müssen Sie ein <em>App-Passwort</em> verwenden (nicht Ihr normales Passwort). Aktivieren Sie dazu die 2-Faktor-Authentifizierung in Ihrem Google-Konto und erstellen Sie unter „Sicherheit → App-Passwörter" ein neues Passwort.
+</div>
+
+<h3>12.4 Kostenstellen</h3>
+<p>Kostenstellen können angelegt, bearbeitet und deaktiviert werden:</p>
+<div class="step"><div class="step-num">1</div><div class="step-content">Klicken Sie auf <strong>„Neue Kostenstelle"</strong></div></div>
+<div class="step"><div class="step-num">2</div><div class="step-content">Geben Sie Nummer, Name und Beschreibung ein</div></div>
+<div class="step"><div class="step-num">3</div><div class="step-content">Speichern – die Kostenstelle ist sofort bei der Kontierung verfügbar</div></div>
+
+<h3>12.5 Workflow-Einstellungen</h3>
+<p>Konfigurieren Sie mehrstufige Genehmigungsprozesse:</p>
+<ul>
+  <li>Anzahl der Genehmigungsstufen</li>
+  <li>Zuständige Benutzer je Stufe</li>
+  <li>Betragsgrenzen (z.B. ab 1.000 € zusätzliche Stufe)</li>
+</ul>
+
+<h3>12.6 Webhooks</h3>
+<p>Senden Sie automatisch Benachrichtigungen an externe Systeme wenn eine Rechnung genehmigt, abgelehnt oder exportiert wird.</p>
+
+<hr>
+
+<!-- 13. BENUTZERVERWALTUNG -->
+<h2 class="section" id="s13">13. Benutzer verwalten</h2>
+
+<p>Nur Administratoren können Benutzer anlegen, bearbeiten und deaktivieren.</p>
+
+<h3>Neuen Benutzer anlegen</h3>
+<div class="step"><div class="step-num">1</div><div class="step-content">Einstellungen → Benutzer → <strong>„Benutzer einladen"</strong></div></div>
+<div class="step"><div class="step-num">2</div><div class="step-content">E-Mail-Adresse, Name und <strong>Rolle</strong> auswählen</div></div>
+<div class="step"><div class="step-num">3</div><div class="step-content">Temporäres Passwort setzen</div></div>
+<div class="step"><div class="step-num">4</div><div class="step-content">Speichern – der Benutzer kann sich sofort anmelden</div></div>
+
+<h3>Benutzer deaktivieren</h3>
+<p>Statt einen Benutzer zu löschen (was Audit-Spuren entfernt), empfehlen wir die <strong>Deaktivierung</strong>. Deaktivierte Benutzer können sich nicht mehr anmelden, ihre Historien bleiben aber erhalten.</p>
+
+<div class="warn">
+  <strong>⚠️ Hinweis:</strong> Es muss immer mindestens ein aktiver Administrator im System vorhanden sein.
+</div>
+
+<hr>
+
+<!-- 14. FAQ -->
+<h2 class="section" id="s14">14. Häufige Fragen (FAQ)</h2>
+
+<h3>❓ Die KI-Analyse erkennt falsche Beträge – was tun?</h3>
+<p>Die KI-Erkennung kann bei schlecht lesbaren oder komplexen PDFs Fehler machen. Bitte prüfen Sie nach der Analyse alle erkannten Felder und korrigieren Sie diese bei Bedarf manuell. Besonders bei gescannten Dokumenten empfehlen wir immer eine manuelle Kontrolle.</p>
+
+<h3>❓ Der „Genehmigen"-Button ist ausgegraut – warum?</h3>
+<p>Eine Genehmigung ist erst möglich, wenn ein <strong>Sachkonto (Kontierung)</strong> hinterlegt wurde. Scrollen Sie in der Detailansicht zum Bereich „Kontierung" und weisen Sie ein Konto zu.</p>
+
+<h3>❓ Ich sehe keine Rechnungen im Posteingang</h3>
+<p>Prüfen Sie folgende Punkte:</p>
+<ul>
+  <li>IMAP-Einstellungen unter <em>Einstellungen → E-Mail</em> korrekt?</li>
+  <li>„Verbindung testen" erfolgreich?</li>
+  <li>Hat der E-Mail-Account neue Mails mit PDF-Anhängen?</li>
+  <li>Warten Sie das nächste Abruf-Intervall ab oder starten Sie den Abruf manuell</li>
+</ul>
+
+<h3>❓ Wie ändere ich mein Passwort?</h3>
+<p>Aktuell wird das Passwort vom Administrator in der Benutzerverwaltung geändert (<em>Einstellungen → Benutzer → Bearbeiten</em>).</p>
+
+<h3>❓ Kann ich gelöschte Rechnungen wiederherstellen?</h3>
+<p>Nein – eine Löschung ist endgültig. Wir empfehlen, Rechnungen stattdessen zu <strong>archivieren</strong> anstatt sie zu löschen. Nur Administratoren können Rechnungen löschen.</p>
+
+<h3>❓ Was bedeutet „GoBD-konform"?</h3>
+<p>GoBD steht für „Grundsätze zur ordnungsmäßigen Führung und Aufbewahrung von Büchern". Archivierte Rechnungen werden unveränderlich gespeichert und mit Zeitstempel versehen, was den gesetzlichen Anforderungen entspricht.</p>
+
+<h3>❓ Welche Browser werden unterstützt?</h3>
+<ul>
+  <li>✅ Google Chrome (empfohlen)</li>
+  <li>✅ Mozilla Firefox</li>
+  <li>✅ Microsoft Edge</li>
+  <li>✅ Safari (macOS/iOS)</li>
+  <li>⚠️ Internet Explorer – nicht unterstützt</li>
+</ul>
+
+<div class="success">
+  <strong>✅ Support:</strong> Bei weiteren Fragen oder Problemen wenden Sie sich an Ihren Administrator oder den technischen Support.
+</div>
+
+</div>
+
+<footer>
+  Wilke Rechnung – Bedienungsanleitung v1.0 &nbsp;|&nbsp; Stand März 2026 &nbsp;|&nbsp; Alle Rechte vorbehalten
+</footer>
+
+</body>
+</html>
