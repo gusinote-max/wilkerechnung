@@ -62,7 +62,7 @@ export default function LoginScreen() {
               <View style={styles.logoCircle}>
                 <Ionicons name="receipt" size={48} color="#6c5ce7" />
               </View>
-              <Text style={styles.title}>Candis-Kopie</Text>
+              <Text style={styles.title}>Autohaus Wilke</Text>
               <Text style={styles.subtitle}>KI-Rechnungsmanagement</Text>
             </View>
 
@@ -135,7 +135,7 @@ export default function LoginScreen() {
             {/* Demo Credentials */}
             <View style={styles.demoBox}>
               <Text style={styles.demoTitle}>Demo-Zugangsdaten</Text>
-              <Text style={styles.demoText}>E-Mail: admin@candis-kopie.de</Text>
+              <Text style={styles.demoText}>E-Mail: admin@autohaus-wilke.de</Text>
               <Text style={styles.demoText}>Passwort: admin123</Text>
             </View>
           </View>

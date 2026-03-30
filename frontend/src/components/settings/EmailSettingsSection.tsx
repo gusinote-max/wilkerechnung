@@ -100,7 +100,7 @@ export default function EmailSettingsSection({ isDesktop, initialData, userEmail
         <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
           <Text style={styles.label}>Absender Name</Text>
           <TextInput style={styles.input} value={fromName} onChangeText={setFromName}
-            placeholder="Candis-Kopie" placeholderTextColor="#636e72" />
+            placeholder="Autohaus Wilke" placeholderTextColor="#636e72" />
         </View>
       </View>
 

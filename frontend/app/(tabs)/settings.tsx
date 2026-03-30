@@ -243,7 +243,7 @@ export default function SettingsScreen() {
 
           {/* App Info */}
           <View style={styles.appInfo}>
-            <Text style={styles.appInfoTitle}>Candis-Kopie</Text>
+            <Text style={styles.appInfoTitle}>Autohaus Wilke</Text>
             <Text style={styles.appInfoVersion}>Version 2.0.0</Text>
             <Text style={styles.appInfoText}>
               KI-Rechnungsmanagement mit OCR, mehrstufigen Workflows, GoBD-Archiv und DATEV-Export

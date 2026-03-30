@@ -132,7 +132,7 @@ export default function DashboardScreen() {
         {/* Header */}
         <View style={[styles.header, isDesktop && styles.desktopHeader]}>
           <View>
-            <Text style={styles.title}>Candis-Kopie</Text>
+            <Text style={styles.title}>Autohaus Wilke</Text>
             <Text style={styles.subtitle}>KI-Rechnungsmanagement</Text>
           </View>
           {isDesktop && !isViewer && (

@@ -22,7 +22,7 @@
       "bundler": "metro",
       "output": "single",
       "favicon": "./assets/images/favicon.png",
-      "name": "Candis Kopie – Rechnungsmanagement",
+      "name": "Autohaus Wilke – Rechnungsmanagement",
       "shortName": "Candis",
       "description": "KI-gestütztes Rechnungsmanagement mit OCR, DATEV-Export und Genehmigungsworkflows",
       "themeColor": "#6c63ff",

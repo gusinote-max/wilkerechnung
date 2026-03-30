@@ -84,7 +84,7 @@ export default function RegisterScreen() {
                 <Ionicons name="person-add" size={48} color="#6c5ce7" />
               </View>
               <Text style={styles.title}>Konto erstellen</Text>
-              <Text style={styles.subtitle}>Registrieren Sie sich für Candis-Kopie</Text>
+              <Text style={styles.subtitle}>Registrieren Sie sich für Autohaus Wilke</Text>
             </View>
 
             {/* Register Form */}

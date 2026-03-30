@@ -42,13 +42,13 @@ client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ.get('DB_NAME', 'invoice_management')]
 
 # Create the main app
-app = FastAPI(title="Candis-Kopie - KI-Rechnungsmanagement")
+app = FastAPI(title="Autohaus Wilke - KI-Rechnungsmanagement")
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
 
 # JWT Configuration
-JWT_SECRET = os.environ.get('JWT_SECRET', 'candis-kopie-secret-key-2024')
+JWT_SECRET = os.environ.get('JWT_SECRET', 'autohaus-wilke-secret-key-2024')
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRATION_HOURS = 24
 
@@ -89,8 +89,8 @@ SMTP_HOST = os.environ.get('SMTP_HOST', '')
 SMTP_PORT = int(os.environ.get('SMTP_PORT', '587'))
 SMTP_USER = os.environ.get('SMTP_USER', '')
 SMTP_PASSWORD = os.environ.get('SMTP_PASSWORD', '')
-SMTP_FROM_EMAIL = os.environ.get('SMTP_FROM_EMAIL', 'noreply@candis-kopie.de')
-SMTP_FROM_NAME = os.environ.get('SMTP_FROM_NAME', 'Candis-Kopie')
+SMTP_FROM_EMAIL = os.environ.get('SMTP_FROM_EMAIL', 'noreply@autohaus-wilke.de')
+SMTP_FROM_NAME = os.environ.get('SMTP_FROM_NAME', 'Autohaus Wilke')
 
 # ===================== KONTENRAHMEN DATA =====================
 # SKR03 - Hauptkonten (verkürzt für MVP)
@@ -795,8 +795,8 @@ class EmailSettings(BaseModel):
     smtp_port: int = 587
     smtp_user: str = ""
     smtp_password: str = ""
-    from_email: str = "noreply@candis-kopie.de"
-    from_name: str = "Candis-Kopie"
+    from_email: str = "noreply@autohaus-wilke.de"
+    from_name: str = "Autohaus Wilke"
     enabled: bool = False
 
 class EmailNotification(BaseModel):
@@ -1066,10 +1066,10 @@ async def send_approval_request_email(invoice: dict, approver_email: str, approv
             <p><strong>Freigabestufe:</strong> {stage_name}</p>
         </div>
         
-        <p>Bitte melden Sie sich in Candis-Kopie an, um die Rechnung zu prüfen und freizugeben.</p>
+        <p>Bitte melden Sie sich in Autohaus Wilke an, um die Rechnung zu prüfen und freizugeben.</p>
         
         <p style="color: #888; font-size: 12px; margin-top: 30px;">
-            Diese E-Mail wurde automatisch von Candis-Kopie generiert.
+            Diese E-Mail wurde automatisch von Autohaus Wilke generiert.
         </p>
     </body>
     </html>
@@ -1100,7 +1100,7 @@ async def send_approval_notification_email(invoice: dict, user_email: str, user_
         </div>
         
         <p style="color: #888; font-size: 12px; margin-top: 30px;">
-            Diese E-Mail wurde automatisch von Candis-Kopie generiert.
+            Diese E-Mail wurde automatisch von Autohaus Wilke generiert.
         </p>
     </body>
     </html>
@@ -1126,10 +1126,10 @@ async def send_reminder_email(invoice: dict, user_email: str, user_name: str, re
             <p><strong>Betrag:</strong> {data.get('gross_amount', 0):.2f} €</p>
         </div>
         
-        <p>Bitte melden Sie sich in Candis-Kopie an, um die Aktion auszuführen.</p>
+        <p>Bitte melden Sie sich in Autohaus Wilke an, um die Aktion auszuführen.</p>
         
         <p style="color: #888; font-size: 12px; margin-top: 30px;">
-            Diese E-Mail wurde automatisch von Candis-Kopie generiert.
+            Diese E-Mail wurde automatisch von Autohaus Wilke generiert.
         </p>
     </body>
     </html>
@@ -1336,8 +1336,8 @@ Falls ein Feld nicht gefunden wird, verwende einen leeren String oder 0 für Zah
                 headers={
                     "Authorization": f"Bearer {settings.ai_settings.api_key}",
                     "Content-Type": "application/json",
-                    "HTTP-Referer": "https://candis-kopie.app",
-                    "X-Title": "Candis-Kopie Invoice OCR"
+                    "HTTP-Referer": "https://autohaus-wilke.de",
+                    "X-Title": "Autohaus Wilke Invoice OCR"
                 },
                 json={
                     "model": settings.ai_settings.model,
@@ -1725,7 +1725,7 @@ def generate_xrechnung_xml(invoice: dict) -> str:
 
 @api_router.get("/")
 async def root():
-    return {"message": "Candis-Kopie API - KI-Rechnungsmanagement", "version": "2.0.0"}
+    return {"message": "Autohaus Wilke API - KI-Rechnungsmanagement", "version": "2.0.0"}
 
 @api_router.get("/health")
 async def health_check():
@@ -2453,7 +2453,7 @@ async def test_webhook(webhook_id: str):
                 webhook['url'],
                 json={
                     "event": "test",
-                    "data": {"message": "Dies ist ein Test-Webhook von Candis-Kopie"}
+                    "data": {"message": "Dies ist ein Test-Webhook von Autohaus Wilke"}
                 },
                 timeout=10.0
             )
@@ -2605,8 +2605,8 @@ async def update_email_settings_route(
     smtp_port: int = 587,
     smtp_user: str = "",
     smtp_password: Optional[str] = None,
-    from_email: str = "noreply@candis-kopie.de",
-    from_name: str = "Candis-Kopie",
+    from_email: str = "noreply@autohaus-wilke.de",
+    from_name: str = "Autohaus Wilke",
     enabled: bool = False
 ):
     """Update email settings"""
@@ -2640,7 +2640,7 @@ async def test_email_settings(test_email: str):
     success = await send_email(
         test_email,
         "Test Empfänger",
-        "Candis-Kopie - Test E-Mail",
+        "Autohaus Wilke - Test E-Mail",
         "<h1>Test erfolgreich!</h1><p>E-Mail-Konfiguration funktioniert.</p>",
         "Test erfolgreich! E-Mail-Konfiguration funktioniert."
     )
@@ -3229,13 +3229,13 @@ async def startup_event():
     admin_exists = await db.users.find_one({"role": "admin"})
     if not admin_exists:
         admin = User(
-            email="admin@candis-kopie.de",
+            email="admin@autohaus-wilke.de",
             password_hash=hash_password("admin123"),
             name="Administrator",
             role=UserRole.ADMIN
         )
         await db.users.insert_one(admin.model_dump())
-        logger.info("Default admin user created: admin@candis-kopie.de / admin123")
+        logger.info("Default admin user created: admin@autohaus-wilke.de / admin123")
 
     # Start IMAP scheduler
     global _imap_scheduler
