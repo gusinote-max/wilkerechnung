@@ -75,6 +75,19 @@ agenthub/agents/youtube/db
 
 # Build caches
 .cache/
+frontend/.metro-cache/
+frontend/.expo/
+.expo/
+
+# Test & dev artifacts
+test_result.md
+test_reports/
+memory/test_credentials.md
+.emergent/
+*_test.py
+backend_test.py
+rbac_test.py
+review_test.py
 
 memory/test_credentials.md
 
