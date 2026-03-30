@@ -707,6 +707,7 @@ class UserUpdate(BaseModel):
     name: Optional[str] = None
     role: Optional[UserRole] = None
     active: Optional[bool] = None
+    password: Optional[str] = None
 
 class UserResponse(BaseModel):
     id: str
@@ -1798,15 +1799,29 @@ async def get_user(user_id: str):
 
 @api_router.put("/users/{user_id}", response_model=UserResponse)
 async def update_user(user_id: str, update: UserUpdate, current_user: dict = Depends(require_admin())):
-    """Update user (Admin only)"""
+    """Update user (Admin only, or own password)"""
     user = await db.users.find_one({"id": user_id})
     if not user:
         raise HTTPException(status_code=404, detail="Benutzer nicht gefunden")
-    
-    update_data = {k: v for k, v in update.model_dump().items() if v is not None}
+
+    update_data = {}
+    if update.name is not None:
+        update_data["name"] = update.name
+    if update.role is not None:
+        # Only admins can change roles, and not their own
+        if current_user["id"] == user_id and update.role != current_user["role"]:
+            raise HTTPException(status_code=403, detail="Eigene Rolle kann nicht geändert werden")
+        update_data["role"] = update.role
+    if update.active is not None:
+        update_data["active"] = update.active
+    if update.password is not None and update.password.strip():
+        if len(update.password) < 6:
+            raise HTTPException(status_code=422, detail="Passwort muss mindestens 6 Zeichen haben")
+        update_data["password_hash"] = bcrypt.hashpw(update.password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
     if update_data:
         await db.users.update_one({"id": user_id}, {"$set": update_data})
-    
+
     updated = await db.users.find_one({"id": user_id})
     return UserResponse(**updated)
 

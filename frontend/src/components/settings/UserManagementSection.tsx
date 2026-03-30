@@ -24,12 +24,40 @@ export default function UserManagementSection({ users, currentUserId, isDesktop,
   const [newUserPassword, setNewUserPassword] = useState('');
   const [newUserRole, setNewUserRole] = useState<'admin' | 'manager' | 'accountant' | 'viewer'>('viewer');
   const [creatingUser, setCreatingUser] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editPassword, setEditPassword] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const openEdit = (u: User) => {
+    setEditingUser(u);
+    setEditName(u.name);
+    setEditPassword('');
+  };
+
+  const handleSaveUser = async () => {
+    if (!editingUser) return;
+    setSaving(true);
+    try {
+      const update: any = {};
+      if (editName.trim() && editName.trim() !== editingUser.name) update.name = editName.trim();
+      if (editPassword.trim()) update.password = editPassword.trim();
+      if (Object.keys(update).length === 0) { setEditingUser(null); setSaving(false); return; }
+      const updated = await apiService.updateUser(editingUser.id, update);
+      onUsersChange(users.map(u => u.id === editingUser.id ? { ...u, ...updated } : u));
+      setEditingUser(null);
+      showToast('success', 'Benutzer wurde gespeichert');
+    } catch (error: any) {
+      showToast('error', error?.response?.data?.detail || 'Speichern fehlgeschlagen');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleUpdateUserRole = async (userId: string, newRole: string) => {
     try {
       await apiService.updateUser(userId, { role: newRole } as any);
       onUsersChange(users.map(u => u.id === userId ? { ...u, role: newRole as any } : u));
-      setEditingUser(null);
+      setEditingUser(prev => prev ? { ...prev, role: newRole as any } : null);
       showToast('success', 'Benutzerrolle wurde aktualisiert');
     } catch (error: any) {
       showToast('error', 'Rolle konnte nicht geändert werden');
@@ -127,7 +155,7 @@ export default function UserManagementSection({ users, currentUserId, isDesktop,
               </Text>
             </View>
             {u.id !== currentUserId && (
-              <TouchableOpacity style={styles.userEditBtn} onPress={() => setEditingUser(u)}>
+              <TouchableOpacity style={styles.userEditBtn} onPress={() => openEdit(u)}>
                 <Ionicons name="create-outline" size={20} color="#6c5ce7" />
               </TouchableOpacity>
             )}
@@ -157,6 +185,30 @@ export default function UserManagementSection({ users, currentUserId, isDesktop,
                   <Text style={styles.userEditName}>{editingUser.name}</Text>
                   <Text style={styles.userEditEmail}>{editingUser.email}</Text>
                 </View>
+
+                <Text style={styles.userEditSectionTitle}>Name ändern</Text>
+                <TextInput
+                  style={styles.editInput}
+                  value={editName}
+                  onChangeText={setEditName}
+                  placeholder="Name"
+                  placeholderTextColor="#636e72"
+                />
+
+                <Text style={styles.userEditSectionTitle}>Passwort ändern</Text>
+                <TextInput
+                  style={styles.editInput}
+                  value={editPassword}
+                  onChangeText={setEditPassword}
+                  placeholder="Neues Passwort (min. 6 Zeichen)"
+                  placeholderTextColor="#636e72"
+                  secureTextEntry
+                />
+                <TouchableOpacity style={styles.saveEditBtn} onPress={handleSaveUser} disabled={saving}>
+                  <Ionicons name="save-outline" size={16} color="#fff" />
+                  <Text style={styles.saveEditBtnText}>{saving ? 'Speichern...' : 'Name/Passwort speichern'}</Text>
+                </TouchableOpacity>
+
                 <Text style={styles.userEditSectionTitle}>Rolle zuweisen</Text>
                 {roleOptions.map((role) => (
                   <TouchableOpacity
@@ -327,6 +379,31 @@ const styles = StyleSheet.create({
   userEditHeader: { alignItems: 'center', marginBottom: 24 },
   userEditName: { fontSize: 20, fontWeight: 'bold', color: '#fff', marginTop: 8 },
   userEditEmail: { fontSize: 14, color: '#a0a0a0', marginTop: 4 },
+  editInput: {
+    backgroundColor: '#2d2d44',
+    borderRadius: 8,
+    padding: 12,
+    color: '#fff',
+    fontSize: 14,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#3d3d5c',
+  },
+  saveEditBtn: {
+    backgroundColor: '#6c5ce7',
+    borderRadius: 8,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 20,
+  },
+  saveEditBtnText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 14,
+  },
   userEditSectionTitle: { fontSize: 14, fontWeight: '600', color: '#a0a0a0', marginBottom: 12, textTransform: 'uppercase', letterSpacing: 1 },
   roleOption: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#0f0f1a', borderRadius: 10, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: '#2d2d44' },
   roleOptionSelected: { backgroundColor: '#6c5ce7', borderColor: '#6c5ce7' },
