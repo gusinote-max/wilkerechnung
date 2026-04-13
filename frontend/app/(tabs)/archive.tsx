@@ -107,7 +107,7 @@ export default function ArchiveScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <SafeAreaView style={[styles.container, { paddingLeft: paddingLeft }]} edges={['bottom']}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#6c5ce7" />
           <Text style={styles.loadingText}>Lade Archiv...</Text>
@@ -117,7 +117,7 @@ export default function ArchiveScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <SafeAreaView style={[styles.container, { paddingLeft: paddingLeft }]} edges={['bottom']}>
       {/* Header Info */}
       <View style={styles.headerInfo}>
         <Ionicons name="shield-checkmark" size={24} color="#55efc4" />

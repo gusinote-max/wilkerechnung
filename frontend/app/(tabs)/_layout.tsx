@@ -98,10 +98,7 @@ export default function TabLayout() {
           ? <DesktopSidebar {...props} />
           : <BottomTabBar {...props} />
       }
-      sceneContainerStyle={[
-        { backgroundColor: colors.bg },
-        isDesktop ? { marginLeft: 240 } : undefined,
-      ]}
+      sceneContainerStyle={{ backgroundColor: colors.bg }}
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: colors.primary,

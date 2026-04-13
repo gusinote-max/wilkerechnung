@@ -160,7 +160,7 @@ export default function InvoicesScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <SafeAreaView style={[styles.container, { paddingLeft: paddingLeft }]} edges={['bottom']}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#6c5ce7" />
           <Text style={styles.loadingText}>Lade Rechnungen...</Text>
@@ -170,7 +170,7 @@ export default function InvoicesScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <SafeAreaView style={[styles.container, { paddingLeft: paddingLeft }]} edges={['bottom']}>
       {/* Filter Bar */}
       <View style={styles.filterBar}>
         <FilterButton value="all" label="Alle" />

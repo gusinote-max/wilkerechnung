@@ -110,7 +110,7 @@ export default function DashboardScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <SafeAreaView style={[styles.container, { paddingLeft: paddingLeft }]} edges={['bottom']}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#6c5ce7" />
           <Text style={styles.loadingText}>Lade Dashboard...</Text>
@@ -120,7 +120,7 @@ export default function DashboardScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <SafeAreaView style={[styles.container, { paddingLeft: paddingLeft }]} edges={['bottom']}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={[

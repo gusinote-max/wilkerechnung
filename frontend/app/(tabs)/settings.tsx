@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { apiService, Settings, User } from '../../src/services/api';
 import { useAuthStore } from '../../src/store/authStore';
 import axios from 'axios';
+import { useDesktopPadding } from '../../src/hooks/useDesktopPadding';
 
 // Refactored Components
 import Toast, { ToastData } from '../../src/components/shared/Toast';
@@ -60,6 +61,7 @@ export default function SettingsScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const isDesktop = width >= 768;
+  const paddingLeft = useDesktopPadding();
   const { user, logout, isAuthenticated } = useAuthStore();
 
   // Role-based permissions
@@ -137,7 +139,7 @@ export default function SettingsScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <SafeAreaView style={[styles.container, { paddingLeft: paddingLeft }]} edges={['bottom']}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#6c5ce7" />
           <Text style={styles.loadingText}>Lade Einstellungen...</Text>
@@ -147,7 +149,7 @@ export default function SettingsScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <SafeAreaView style={[styles.container, { paddingLeft: paddingLeft }]} edges={['bottom']}>
       <KeyboardAvoidingView
         style={styles.keyboardView}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}

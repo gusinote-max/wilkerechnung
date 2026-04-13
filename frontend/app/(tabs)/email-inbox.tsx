@@ -9,6 +9,7 @@ import axios from 'axios';
 import { useFocusEffect, router } from 'expo-router';
 import { useAuthStore } from '../../src/store/authStore';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useDesktopPadding } from '../../src/hooks/useDesktopPadding';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
 const IS_DESKTOP = Platform.OS === 'web' && Dimensions.get('window').width > 900;
@@ -56,6 +57,7 @@ function fmtEuro(n: number) {
 export default function EmailInboxScreen() {
   const { token } = useAuthStore();
   const headers = { Authorization: `Bearer ${token}` };
+  const paddingLeft = useDesktopPadding();
 
   const [emails, setEmails] = useState<EmailItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -380,7 +382,7 @@ export default function EmailInboxScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <SafeAreaView style={[styles.container, { paddingLeft: paddingLeft }]} edges={['bottom']}>
       {/* Toast */}
       {toast && (
         <View style={[styles.toast, toast.type === 'success' ? styles.toastSuccess : styles.toastError]}>

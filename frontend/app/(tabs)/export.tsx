@@ -13,12 +13,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 import { apiService, Invoice } from '../../src/services/api';
+import { useDesktopPadding } from '../../src/hooks/useDesktopPadding';
 
 type ExportType = 'datev_ascii' | 'datev_xml' | 'sepa';
 
 export default function ExportScreen() {
   const { width } = useWindowDimensions();
   const isDesktop = width >= 768;
+  const paddingLeft = useDesktopPadding();
   const [loading, setLoading] = useState<ExportType | null>(null);
   const [approvedInvoices, setApprovedInvoices] = useState<Invoice[]>([]);
   const [selectedForSepa, setSelectedForSepa] = useState<string[]>([]);
@@ -146,7 +148,7 @@ export default function ExportScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <SafeAreaView style={[styles.container, { paddingLeft: paddingLeft }]} edges={['bottom']}>
       <ScrollView 
         style={styles.scrollView}
         contentContainerStyle={isDesktop && styles.desktopContent}
