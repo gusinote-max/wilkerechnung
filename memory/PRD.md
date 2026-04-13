@@ -46,7 +46,15 @@ Der Benutzer baut ein KI-gestütztes Rechnungsverwaltungssystem für "Autohaus W
 
 ## CHANGELOG
 
-### 2026-03-30 – P0 Features: Kostenstellen & Kontierungspflicht
+### 2026-04-13 – Desktop Sidebar Layout Fix (P0 Bug)
+- **Problem**: Absolut positionierte Sidebar (240px) überlagerte den Hauptinhalt aller Tab-Screens. `sceneContainerStyle: { marginLeft: 240 }` in `_layout.tsx` funktionierte NICHT (JS-Inspektion: scene container blieb bei x=0).
+- **Lösung**: `useDesktopPadding`-Hook erstellt, `paddingLeft: 240` (Desktop) direkt auf `SafeAreaView` in allen 6 Tab-Screens angewendet: `index.tsx`, `invoices.tsx`, `archive.tsx`, `email-inbox.tsx`, `export.tsx`, `settings.tsx`. Nicht-funktionierendes `marginLeft:240` aus `sceneContainerStyle` entfernt.
+- **Getestet**: Alle 8 Tests bestanden (100%) - Alle Filter-Chips, Sidebar-Abstand, Login-Credentials korrekt.
+
+### 2026-04-13 – Login-Screen Rebranding
+- **Fix**: Login-Demo-Credentials aktualisiert von `admin@candis-kopie.de` auf `admin@autohaus-wilke.de`.
+
+
 - **Kostenstellen CRUD**: Backend: `CostCenterUpdate` Model, `GET /api/cost-centers?include_inactive=true`, `PUT /api/cost-centers/{id}` akzeptiert JSON-Body, Auth Guards (require_admin) auf POST/PUT/DELETE. Frontend: `KostenstellenSection.tsx` in `settings.tsx` eingebunden, `apiService.updateCostCenter()` hinzugefügt.
 - **Kontierungspflicht**: `POST /api/invoices/{id}/approve` gibt 422 zurück wenn kein `account_number` gesetzt. Frontend `InvoiceActions.tsx` zeigt Warnbanner und deaktivierten Button.
 - **Getestet**: 100% (17/17 Backend + 4/4 Frontend flows)
