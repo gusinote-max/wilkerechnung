@@ -7,17 +7,23 @@ import {
   TouchableOpacity,
   RefreshControl,
   ActivityIndicator,
+  Platform,
+  useWindowDimensions,
 } from 'react-native';
 import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { apiService, Invoice } from '../../src/services/api';
+import { useDesktopPadding } from '../../src/hooks/useDesktopPadding';
 
 type StatusFilter = 'all' | 'pending' | 'approved' | 'rejected';
 
 export default function InvoicesScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const { width } = useWindowDimensions();
+  const isDesktop = Platform.OS === 'web' && width >= 900;
+  const paddingLeft = useDesktopPadding();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);

@@ -12,9 +12,11 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { apiService, Invoice } from '../../src/services/api';
+import { useDesktopPadding } from '../../src/hooks/useDesktopPadding';
 
 export default function ArchiveScreen() {
   const router = useRouter();
+  const paddingLeft = useDesktopPadding();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);

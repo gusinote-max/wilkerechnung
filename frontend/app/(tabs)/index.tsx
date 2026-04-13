@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { apiService, Invoice } from '../../src/services/api';
 import useAuthStore from '../../src/store/authStore';
+import { useDesktopPadding } from '../../src/hooks/useDesktopPadding';
 
 interface Stats {
   counts: {
@@ -37,6 +38,7 @@ export default function DashboardScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const isDesktop = width >= 768;
+  const paddingLeft = useDesktopPadding();
   
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
