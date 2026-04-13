@@ -167,7 +167,7 @@ const styles = StyleSheet.create({
   },
   navItemActive: { backgroundColor: '#2d2060' },
   navLabel: { color: colors.sidebarTextMuted, marginLeft: 10, fontSize: 13.5 },
-  navLabelActive: { color: '#2c2c3e', fontWeight: '500' },
+  navLabelActive: { color: '#ffffff', fontWeight: '600' },
   sidebarBottom: { paddingBottom: 16 },
   userArea: {
     flexDirection: 'row',

@@ -14,7 +14,7 @@
 # Main and testing agents must follow this exact format to maintain testing data. 
 # The testing data must be entered in yaml format Below is the data structure:
 # 
-## user_problem_statement: "Candis-Kopie (Candis clone) - AI-powered invoice management system. In this session: Fixed P0 bug where SKR51 accounts contained wrong NGO/Non-Profit data instead of correct KFZ-Branche (automotive) accounts. Replaced 203 wrong NGO accounts in MongoDB with 297 correct KFZ-Handel/Kfz-Handwerk accounts including Hebebühnen, Neufahrzeuge, Floorplan, Vorführfahrzeuge, Gebrauchtfahrzeuge, Werkstattkonten, etc."
+## user_problem_statement: "Autohaus Wilke - AI-powered invoice management system. In this session: Complete UI Design Upgrade - changed from dark theme (#0f0f1a/#1a1a2e) to light theme (warm beige #f4f0eb, white cards #ffffff). Added desktop sidebar navigation (dark purple #1e1535) with icon+text nav items replacing tab bar on desktop (>900px wide). Updated all 22+ component files and screens (login, dashboard, invoices, archive, export, email-inbox, settings) with new light color palette."
 
 ## backend:
   - task: "Auth Login API"
