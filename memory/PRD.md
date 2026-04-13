@@ -46,7 +46,12 @@ Der Benutzer baut ein KI-gestütztes Rechnungsverwaltungssystem für "Autohaus W
 
 ## CHANGELOG
 
-### 2026-04-13 – Desktop Sidebar Layout Fix (P0 Bug)
+### 2026-04-13 – OCR-Bearbeitung + Farbfixes
+- **Feature**: "OCR korrigieren"-Modal auf Rechnungsdetailscreen – alle 11 OCR-Felder editierbar (Lieferant: Name/Adresse/USt-IdNr/IBAN, Rechnungsdaten: Nummer/Datum/Fälligkeit, Beträge: Netto/MwSt-Satz/MwSt-Betrag/Brutto). Nur für Accountant+ sichtbar, nicht bei archivierten Rechnungen.
+- **Bugfix Farben**: 8 Farbprobleme behoben (dunkler Text auf lila/grünen Buttons → #ffffff; fast-unsichtbarer aiDetailText → #6e6e85; zu-heller pickerItemText → #636e72) in `email-inbox.tsx`, `invoices.tsx`, `invoice/[id].tsx`.
+- **Getestet**: 9/9 Tests bestanden.
+
+
 - **Problem**: Absolut positionierte Sidebar (240px) überlagerte den Hauptinhalt aller Tab-Screens. `sceneContainerStyle: { marginLeft: 240 }` in `_layout.tsx` funktionierte NICHT (JS-Inspektion: scene container blieb bei x=0).
 - **Lösung**: `useDesktopPadding`-Hook erstellt, `paddingLeft: 240` (Desktop) direkt auf `SafeAreaView` in allen 6 Tab-Screens angewendet: `index.tsx`, `invoices.tsx`, `archive.tsx`, `email-inbox.tsx`, `export.tsx`, `settings.tsx`. Nicht-funktionierendes `marginLeft:240` aus `sceneContainerStyle` entfernt.
 - **Getestet**: Alle 8 Tests bestanden (100%) - Alle Filter-Chips, Sidebar-Abstand, Login-Credentials korrekt.
