@@ -70,6 +70,8 @@ export interface Invoice {
   archived_at?: string;
   gobd_hash?: string;
   search_text?: string;
+  duplicate_warning?: boolean;
+  duplicate_ids?: string[];
 }
 
 export interface Stats {

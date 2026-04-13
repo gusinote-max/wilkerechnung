@@ -369,6 +369,24 @@ export default function InvoiceDetailScreen() {
         <View style={isDesktop && styles.desktopLayout}>
           {/* Left Column */}
           <View style={isDesktop && styles.desktopLeftColumn}>
+            {/* Duplikat-Warnung */}
+            {invoice.duplicate_warning && (
+              <View style={styles.duplicateBanner}>
+                <Ionicons name="warning" size={16} color="#e17055" />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.duplicateBannerTitle}>⚠️ Mögliches Duplikat erkannt</Text>
+                  <Text style={styles.duplicateBannerText}>
+                    Diese Rechnung ähnelt einer bereits vorhandenen Rechnung. Bitte prüfen Sie, ob sie bereits existiert.
+                  </Text>
+                  {(invoice.duplicate_ids || []).length > 0 && (
+                    <TouchableOpacity onPress={() => router.push(`/invoice/${invoice.duplicate_ids![0]}`)}>
+                      <Text style={styles.duplicateBannerLink}>→ Mögliches Original ansehen</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+            )}
+
             {/* Status Header */}
             <View style={[styles.statusHeader, { borderLeftColor: getStatusColor(invoice.status) }]}>
               <View style={styles.statusInfo}>
@@ -892,4 +910,9 @@ const styles = StyleSheet.create({
   editModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   editSectionTitle: { fontSize: 13, fontWeight: '700', color: '#6c5ce7', marginBottom: 8, paddingBottom: 6, borderBottomWidth: 1, borderBottomColor: '#e5ddd5' },
   editAmountsRow: { flexDirection: 'row', marginBottom: 4 },
+  // Duplicate warning banner
+  duplicateBanner: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, backgroundColor: '#e1705520', borderRadius: 10, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: '#e1705540' },
+  duplicateBannerTitle: { fontSize: 13, fontWeight: '700', color: '#c0392b', marginBottom: 2 },
+  duplicateBannerText: { fontSize: 12, color: '#c0392b', lineHeight: 18 },
+  duplicateBannerLink: { fontSize: 12, color: '#6c5ce7', fontWeight: '700', marginTop: 4 },
 });

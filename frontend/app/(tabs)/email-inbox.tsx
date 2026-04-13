@@ -320,10 +320,17 @@ export default function EmailInboxScreen() {
             {/* Banner: bereits importiert */}
             {item.imported && (
               <View style={styles.alreadyImportedBanner}>
-                <Ionicons name="information-circle" size={14} color="#6c5ce7" />
-                <Text style={styles.alreadyImportedText}>
-                  Importiert am {item.imported_at ? fmtDate(item.imported_at) : '–'}. Kein erneuter Import möglich.
-                </Text>
+                <Ionicons name="checkmark-circle" size={14} color="#00b894" />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.alreadyImportedText}>
+                    Importiert am {item.imported_at ? fmtDate(item.imported_at) : '–'}. Kein erneuter Import möglich.
+                  </Text>
+                  {item.invoice_id && (
+                    <TouchableOpacity onPress={() => router.push(`/invoice/${item.invoice_id}`)}>
+                      <Text style={styles.viewInvoiceLink}>→ Rechnung ansehen</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
               </View>
             )}
 
@@ -684,8 +691,9 @@ const styles = StyleSheet.create({
   importedBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#6c5ce720', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
   importedBadgeText: { fontSize: 11, color: '#6c5ce7', fontWeight: '700' },
   dateText: { marginLeft: 'auto', fontSize: 11, color: '#9e9eaa' },
-  alreadyImportedBanner: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#6c5ce710', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, marginBottom: 8, borderWidth: 1, borderColor: '#6c5ce730' },
-  alreadyImportedText: { fontSize: 12, color: '#a29bfe', flex: 1 },
+  alreadyImportedBanner: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, backgroundColor: '#00b89415', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, marginBottom: 8, borderWidth: 1, borderColor: '#00b89440' },
+  alreadyImportedText: { fontSize: 12, color: '#00a381', flex: 1 },
+  viewInvoiceLink: { fontSize: 12, color: '#6c5ce7', fontWeight: '700', marginTop: 2 },
   subject: { fontSize: 14, fontWeight: '600', color: '#2c2c3e', marginBottom: 3 },
   sender: { fontSize: 12, color: '#6e6e85', marginBottom: 8 },
   aiDetails: { backgroundColor: '#f4f0eb', borderRadius: 8, padding: 9, marginBottom: 8, gap: 3 },

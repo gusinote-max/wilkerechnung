@@ -270,6 +270,23 @@ export default function UploadScreen() {
         {/* Analysis Result - Success */}
         {analysisResult && (
           <View style={styles.resultContainer}>
+            {/* Duplikat-Warnung Banner */}
+            {analysisResult.duplicate_warning && (
+              <View style={styles.duplicateWarningBanner}>
+                <Ionicons name="warning" size={18} color="#e17055" />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.duplicateWarningTitle}>⚠️ Mögliches Duplikat erkannt!</Text>
+                  <Text style={styles.duplicateWarningText}>
+                    Diese Rechnung ähnelt einer bereits vorhandenen. Bitte prüfen Sie, ob sie bereits importiert wurde.
+                  </Text>
+                  {(analysisResult.duplicate_ids || []).length > 0 && (
+                    <TouchableOpacity onPress={() => router.push(`/invoice/${analysisResult.duplicate_ids![0]}`)}>
+                      <Text style={styles.duplicateWarningLink}>→ Mögliches Original ansehen</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+            )}
             <View style={styles.resultHeader}>
               <Ionicons name="checkmark-circle" size={32} color="#55efc4" />
               <Text style={styles.resultTitle}>KI-Analyse erfolgreich!</Text>
@@ -603,6 +620,11 @@ const styles = StyleSheet.create({
   resultContainer: {
     marginBottom: 20,
   },
+  // Duplicate warning
+  duplicateWarningBanner: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, backgroundColor: '#e1705520', borderRadius: 10, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: '#e1705550' },
+  duplicateWarningTitle: { fontSize: 13, fontWeight: '700', color: '#c0392b', marginBottom: 2 },
+  duplicateWarningText: { fontSize: 12, color: '#c0392b', lineHeight: 18 },
+  duplicateWarningLink: { fontSize: 12, color: '#6c5ce7', fontWeight: '700', marginTop: 4 },
   resultHeader: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -549,6 +549,9 @@ class Invoice(BaseModel):
     gobd_hash: Optional[str] = None
     # NEW: For search indexing
     search_text: Optional[str] = None
+    # NEW: Duplicate detection
+    duplicate_warning: bool = False
+    duplicate_ids: List[str] = Field(default_factory=list)
 
 class InvoiceCreate(BaseModel):
     image_base64: str
@@ -973,6 +976,41 @@ def generate_search_text(invoice_data: dict) -> str:
         if isinstance(item, dict):
             parts.append(item.get('description', ''))
     return ' '.join(filter(None, parts)).lower()
+
+async def check_for_duplicates(data_dict: dict, exclude_id: str = None) -> List[str]:
+    """Check for potential duplicate invoices. Returns list of matching invoice IDs."""
+    duplicates = []
+    inv_number = str(data_dict.get('invoice_number') or '').strip()
+    vendor = str(data_dict.get('vendor_name') or '').strip()
+    gross = float(data_dict.get('gross_amount') or 0)
+    inv_date = str(data_dict.get('invoice_date') or '').strip()
+
+    base_query: dict = {"status": {"$ne": "archived"}}
+    if exclude_id:
+        base_query["id"] = {"$ne": exclude_id}
+
+    # Strong match: same invoice_number + vendor_name
+    if inv_number and vendor:
+        q = {**base_query,
+             "data.invoice_number": {"$regex": re.escape(inv_number), "$options": "i"},
+             "data.vendor_name": {"$regex": re.escape(vendor[:30]), "$options": "i"}}
+        matches = await db.invoices.find(q).to_list(5)
+        for m in matches:
+            if m.get("id") and m["id"] not in duplicates:
+                duplicates.append(m["id"])
+
+    # Soft match: same gross_amount + invoice_date + vendor_name (only if no strong match)
+    if not duplicates and gross > 0 and inv_date and vendor:
+        q = {**base_query,
+             "data.gross_amount": gross,
+             "data.invoice_date": inv_date,
+             "data.vendor_name": {"$regex": re.escape(vendor[:30]), "$options": "i"}}
+        matches = await db.invoices.find(q).to_list(5)
+        for m in matches:
+            if m.get("id") and m["id"] not in duplicates:
+                duplicates.append(m["id"])
+
+    return duplicates
 
 # ===================== EMAIL FUNCTIONS =====================
 async def get_email_settings() -> EmailSettings:
@@ -1946,6 +1984,13 @@ async def create_invoice(invoice_create: InvoiceCreate, current_user: dict = Dep
         
         invoice.search_text = generate_search_text(invoice_data.model_dump())
         invoice.gobd_hash = generate_gobd_hash(invoice.model_dump())
+        
+        # Duplikaterkennung
+        dup_ids = await check_for_duplicates(invoice_data.model_dump())
+        if dup_ids:
+            invoice.duplicate_warning = True
+            invoice.duplicate_ids = dup_ids
+            logger.info(f"Duplikat-Warnung für Rechnung {invoice.id}: mögliche Duplikate {dup_ids}")
         
         await db.invoices.insert_one(invoice.model_dump())
         await log_audit(invoice.id, "created", "system", {"ocr": True})
@@ -3055,6 +3100,11 @@ async def import_email_attachment(item_id: str, attachment_index: int = 0, curre
         invoice = Invoice(data=invoice_data, image_base64=stored_image, status=InvoiceStatus.PENDING)
         invoice.search_text = generate_search_text(invoice_data.model_dump())
         invoice.gobd_hash = generate_gobd_hash(invoice.model_dump())
+        # Duplikaterkennung
+        dup_ids = await check_for_duplicates(invoice_data.model_dump())
+        if dup_ids:
+            invoice.duplicate_warning = True
+            invoice.duplicate_ids = dup_ids
         await db.invoices.insert_one(invoice.model_dump())
         await log_audit(invoice.id, "created", current_user.get("email", "system"), {"source": "email_import", "email_subject": item.get("subject", "")})
 
@@ -3204,6 +3254,11 @@ async def batch_import_emails(
             invoice = Invoice(data=invoice_data, image_base64=stored_image, status=InvoiceStatus.PENDING)
             invoice.search_text = generate_search_text(invoice_data.model_dump())
             invoice.gobd_hash = generate_gobd_hash(invoice.model_dump())
+            # Duplikaterkennung
+            dup_ids = await check_for_duplicates(invoice_data.model_dump())
+            if dup_ids:
+                invoice.duplicate_warning = True
+                invoice.duplicate_ids = dup_ids
             await db.invoices.insert_one(invoice.model_dump())
             await log_audit(invoice.id, "created", current_user.get("email", "system"), {"source": "email_batch_import", "email_subject": item.get("subject", "")})
             await db.email_inbox.update_one(
