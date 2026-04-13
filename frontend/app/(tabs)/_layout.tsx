@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
   useWindowDimensions, Platform,
@@ -92,7 +92,21 @@ export default function TabLayout() {
   const { width } = useWindowDimensions();
   const isDesktop = Platform.OS === 'web' && width >= 900;
   const insets = useSafeAreaInsets();
-  const bottomInset = Math.max(insets.bottom, 8);
+
+  // Erkennt ob die App im Browser oder als installierte PWA läuft
+  // Im Browser: Safari-Toolbar (~50px) überdeckt das untere Tab-Bar → extra Padding nötig
+  const [browserToolbarPadding, setBrowserToolbarPadding] = useState(50);
+  useEffect(() => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const isStandalone =
+        window.matchMedia?.('(display-mode: standalone)').matches ||
+        (window.navigator as any).standalone === true;
+      // Im Browser: 50px extra; Als PWA homescreen: 0px extra
+      setBrowserToolbarPadding(isStandalone ? 0 : 50);
+    }
+  }, []);
+
+  const bottomPadding = Math.max(insets.bottom, 8) + browserToolbarPadding;
 
   return (
     <Tabs
@@ -110,8 +124,8 @@ export default function TabLayout() {
           backgroundColor: '#ffffff',
           borderTopColor: '#e5ddd5',
           borderTopWidth: 1,
-          height: 52 + bottomInset,
-          paddingBottom: bottomInset,
+          height: 56 + bottomPadding,
+          paddingBottom: bottomPadding,
           paddingTop: 8,
           elevation: 8,
           shadowColor: '#000',
