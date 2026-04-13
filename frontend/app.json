@@ -23,10 +23,10 @@
       "output": "single",
       "favicon": "./assets/images/favicon.png",
       "name": "Autohaus Wilke – Rechnungsmanagement",
-      "shortName": "Candis",
+      "shortName": "AW Rechnungen",
       "description": "KI-gestütztes Rechnungsmanagement mit OCR, DATEV-Export und Genehmigungsworkflows",
-      "themeColor": "#6c63ff",
-      "backgroundColor": "#0f0f1a",
+      "themeColor": "#6c5ce7",
+      "backgroundColor": "#f4f0eb",
       "lang": "de"
     },
     "plugins": [

@@ -46,7 +46,11 @@ Der Benutzer baut ein KI-gestütztes Rechnungsverwaltungssystem für "Autohaus W
 
 ## CHANGELOG
 
-### 2026-04-13 – PWA Weisser Screen Fix (P0 Bug)
+### 2026-04-13 – PWA Tab-Bar Fix (Mobile Labels unsichtbar)
+- **Problem**: Tab-Bar Labels auf iPhone/Android PWA nicht lesbar. Ursache: (1) `tabBarInactiveTintColor: #9e9eaa` zu hell auf weißem Hintergrund (Kontrast 2.2:1). (2) Kein `viewport-fit=cover` → Safe-Area-Insets immer 0 → Tab-Bar unter iPhone Home-Indicator.
+- **Fix**: `web/index.html` mit `viewport-fit=cover` + PWA-Meta-Tags erstellt. `useSafeAreaInsets()` für dynamische Tab-Bar-Höhe. `tabBarInactiveTintColor: '#4a4a6a'` (Kontrast 6.5:1). `app.json` PWA-Farben korrigiert.
+
+
 - **Problem**: `BottomTabBar` von `@react-navigation/bottom-tabs` als custom `tabBar` Prop → `useTheme()` verlor NavigationContainer-Kontext auf Mobile/PWA → weisser Screen.
 - **Fix**: `tabBar={isDesktop ? (props) => <DesktopSidebar {...props} /> : undefined}` → auf Mobile nutzt Expo Router den nativen BottomTabBar automatisch (korrekt themed). `BottomTabBar` Import entfernt.
 

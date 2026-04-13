@@ -6,6 +6,7 @@ import {
   useWindowDimensions, Platform,
 } from 'react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import useAuthStore from '../../src/store/authStore';
 import { useRouter } from 'expo-router';
 import { colors } from '../../src/theme';
@@ -90,6 +91,8 @@ function DesktopSidebar({ state, descriptors, navigation }: BottomTabBarProps) {
 export default function TabLayout() {
   const { width } = useWindowDimensions();
   const isDesktop = Platform.OS === 'web' && width >= 900;
+  const insets = useSafeAreaInsets();
+  const bottomInset = Math.max(insets.bottom, 8);
 
   return (
     <Tabs
@@ -97,14 +100,24 @@ export default function TabLayout() {
       sceneContainerStyle={{ backgroundColor: colors.bg }}
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.textFaded,
+        tabBarActiveTintColor: '#6c5ce7',
+        tabBarInactiveTintColor: '#4a4a6a',
+        tabBarLabelStyle: {
+          fontSize: 10,
+          fontWeight: '600',
+        },
         tabBarStyle: {
-          backgroundColor: colors.card,
-          borderTopColor: colors.border,
-          height: 60,
-          paddingBottom: 8,
+          backgroundColor: '#ffffff',
+          borderTopColor: '#e5ddd5',
+          borderTopWidth: 1,
+          height: 52 + bottomInset,
+          paddingBottom: bottomInset,
           paddingTop: 8,
+          elevation: 8,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.06,
+          shadowRadius: 8,
         },
       }}
     >

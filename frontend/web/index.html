@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
+
+    <!-- viewport-fit=cover ist PFLICHT für iPhone Safe-Area (Home-Indicator) -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no, viewport-fit=cover" />
+
+    <!-- PWA / iOS Homescreen -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Autohaus Wilke" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="theme-color" content="#6c5ce7" />
+
+    <title>Autohaus Wilke – Rechnungsmanagement</title>
+
+    <style id="expo-reset">
+      html, body { height: 100%; }
+      body { overflow: hidden; }
+      #root { display: flex; height: 100%; flex: 1; }
+
+      /* Sichere Bereiche für iPhone (Home-Indicator & Notch) */
+      :root {
+        --safe-area-inset-top: env(safe-area-inset-top, 0px);
+        --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+        --safe-area-inset-left: env(safe-area-inset-left, 0px);
+        --safe-area-inset-right: env(safe-area-inset-right, 0px);
+      }
+    </style>
+  </head>
+  <body>
+    <noscript>JavaScript muss aktiviert sein.</noscript>
+    <div id="root"></div>
+  </body>
+</html>
