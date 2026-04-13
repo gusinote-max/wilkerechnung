@@ -46,7 +46,11 @@ Der Benutzer baut ein KI-gestütztes Rechnungsverwaltungssystem für "Autohaus W
 
 ## CHANGELOG
 
-### 2026-04-13 – OCR-Bearbeitung + Farbfixes
+### 2026-04-13 – PWA Weisser Screen Fix (P0 Bug)
+- **Problem**: `BottomTabBar` von `@react-navigation/bottom-tabs` als custom `tabBar` Prop → `useTheme()` verlor NavigationContainer-Kontext auf Mobile/PWA → weisser Screen.
+- **Fix**: `tabBar={isDesktop ? (props) => <DesktopSidebar {...props} /> : undefined}` → auf Mobile nutzt Expo Router den nativen BottomTabBar automatisch (korrekt themed). `BottomTabBar` Import entfernt.
+
+
 - **Feature**: "OCR korrigieren"-Modal auf Rechnungsdetailscreen – alle 11 OCR-Felder editierbar (Lieferant: Name/Adresse/USt-IdNr/IBAN, Rechnungsdaten: Nummer/Datum/Fälligkeit, Beträge: Netto/MwSt-Satz/MwSt-Betrag/Brutto). Nur für Accountant+ sichtbar, nicht bei archivierten Rechnungen.
 - **Bugfix Farben**: 8 Farbprobleme behoben (dunkler Text auf lila/grünen Buttons → #ffffff; fast-unsichtbarer aiDetailText → #6e6e85; zu-heller pickerItemText → #636e72) in `email-inbox.tsx`, `invoices.tsx`, `invoice/[id].tsx`.
 - **Getestet**: 9/9 Tests bestanden.

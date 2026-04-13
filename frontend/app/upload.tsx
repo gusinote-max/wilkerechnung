@@ -711,7 +711,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   resultButtonText: {
-    color: '#2c2c3e',
+    color: '#ffffff',
     fontSize: 16,
     fontWeight: 'bold',
   },

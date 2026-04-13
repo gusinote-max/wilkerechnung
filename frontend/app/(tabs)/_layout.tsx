@@ -5,7 +5,7 @@ import {
   View, Text, TouchableOpacity, StyleSheet,
   useWindowDimensions, Platform,
 } from 'react-native';
-import { BottomTabBar, BottomTabBarProps } from '@react-navigation/bottom-tabs';
+import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import useAuthStore from '../../src/store/authStore';
 import { useRouter } from 'expo-router';
 import { colors } from '../../src/theme';
@@ -93,11 +93,7 @@ export default function TabLayout() {
 
   return (
     <Tabs
-      tabBar={(props) =>
-        isDesktop
-          ? <DesktopSidebar {...props} />
-          : <BottomTabBar {...props} />
-      }
+      tabBar={isDesktop ? (props) => <DesktopSidebar {...props} /> : undefined}
       sceneContainerStyle={{ backgroundColor: colors.bg }}
       screenOptions={{
         headerShown: false,
