@@ -346,7 +346,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   uploadPromptText: {
-    color: '#2c2c3e',
+    color: '#ffffff',
     fontSize: 14,
     fontWeight: '600',
   },

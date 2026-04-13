@@ -59,6 +59,20 @@ export default function InvoiceDetailScreen() {
   const [showConfirm, setShowConfirm] = useState<{ action: string; title: string; message: string } | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
+  // OCR Edit Modal state
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editVendorName, setEditVendorName] = useState('');
+  const [editVendorAddress, setEditVendorAddress] = useState('');
+  const [editVendorVatId, setEditVendorVatId] = useState('');
+  const [editVendorIban, setEditVendorIban] = useState('');
+  const [editInvoiceNumber, setEditInvoiceNumber] = useState('');
+  const [editInvoiceDate, setEditInvoiceDate] = useState('');
+  const [editDueDate, setEditDueDate] = useState('');
+  const [editNetAmount, setEditNetAmount] = useState('');
+  const [editVatRate, setEditVatRate] = useState('');
+  const [editVatAmount, setEditVatAmount] = useState('');
+  const [editGrossAmount, setEditGrossAmount] = useState('');
+
   // DATEV & Payment states
   const [datevStatus, setDatevStatus] = useState<any>(null);
   const [paymentStatus, setPaymentStatus] = useState<any>(null);
@@ -205,6 +219,52 @@ export default function InvoiceDetailScreen() {
     }
   };
 
+  const handleOpenEditModal = () => {
+    if (!invoice) return;
+    const d = invoice.data;
+    setEditVendorName(d.vendor_name || '');
+    setEditVendorAddress(d.vendor_address || '');
+    setEditVendorVatId(d.vendor_vat_id || '');
+    setEditVendorIban(d.vendor_iban || '');
+    setEditInvoiceNumber(d.invoice_number || '');
+    setEditInvoiceDate(d.invoice_date || '');
+    setEditDueDate(d.due_date || '');
+    setEditNetAmount(String(d.net_amount ?? 0));
+    setEditVatRate(String(d.vat_rate ?? 19));
+    setEditVatAmount(String(d.vat_amount ?? 0));
+    setEditGrossAmount(String(d.gross_amount ?? 0));
+    setShowEditModal(true);
+  };
+
+  const handleSaveInvoiceData = async () => {
+    if (!invoice) return;
+    setActionLoading(true);
+    try {
+      const updatedData: InvoiceData = {
+        ...invoice.data,
+        vendor_name: editVendorName,
+        vendor_address: editVendorAddress,
+        vendor_vat_id: editVendorVatId,
+        vendor_iban: editVendorIban,
+        invoice_number: editInvoiceNumber,
+        invoice_date: editInvoiceDate,
+        due_date: editDueDate,
+        net_amount: parseFloat(editNetAmount) || 0,
+        vat_rate: parseFloat(editVatRate) || 0,
+        vat_amount: parseFloat(editVatAmount) || 0,
+        gross_amount: parseFloat(editGrossAmount) || 0,
+      };
+      const updated = await apiService.updateInvoice(id!, updatedData);
+      setInvoice(updated);
+      setShowEditModal(false);
+      showToast('success', 'Rechnungsdaten wurden aktualisiert');
+    } catch (error: any) {
+      showToast('error', error.response?.data?.detail || 'Speichern fehlgeschlagen');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handleSaveAccounting = async () => {
     if (!invoice) return;
     setActionLoading(true);
@@ -312,7 +372,15 @@ export default function InvoiceDetailScreen() {
             {/* Status Header */}
             <View style={[styles.statusHeader, { borderLeftColor: getStatusColor(invoice.status) }]}>
               <View style={styles.statusInfo}>
-                <Text style={[styles.statusText, { color: getStatusColor(invoice.status) }]}>{getStatusLabel(invoice.status)}</Text>
+                <View style={styles.statusRow}>
+                  <Text style={[styles.statusText, { color: getStatusColor(invoice.status) }]}>{getStatusLabel(invoice.status)}</Text>
+                  {invoice.status !== 'archived' && isAccountantOrAbove && (
+                    <TouchableOpacity style={styles.ocrEditButton} onPress={handleOpenEditModal}>
+                      <Ionicons name="create-outline" size={14} color="#6c5ce7" />
+                      <Text style={styles.ocrEditButtonText}>OCR korrigieren</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
                 <Text style={styles.invoiceNumber}>{data.invoice_number || 'Ohne Nummer'}</Text>
               </View>
               <Text style={styles.grossAmount}>{formatCurrency(data.gross_amount)}</Text>
@@ -534,6 +602,73 @@ export default function InvoiceDetailScreen() {
         </View>
       </ScrollView>
 
+      {/* OCR Edit Modal */}
+      <Modal visible={showEditModal} transparent animationType="slide" onRequestClose={() => setShowEditModal(false)}>
+        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <View style={[styles.modalContent, isDesktop && styles.desktopModalContent, { maxHeight: '90%' }]}>
+            <View style={styles.editModalHeader}>
+              <Text style={styles.modalTitle}>OCR-Daten korrigieren</Text>
+              <TouchableOpacity onPress={() => setShowEditModal(false)}>
+                <Ionicons name="close" size={24} color="#6e6e85" />
+              </TouchableOpacity>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false} nestedScrollEnabled>
+              {/* Lieferant */}
+              <Text style={styles.editSectionTitle}>Lieferant</Text>
+              <Text style={styles.modalLabel}>Lieferantenname</Text>
+              <TextInput style={styles.modalInput} value={editVendorName} onChangeText={setEditVendorName} placeholder="Lieferant..." placeholderTextColor="#9e9eaa" />
+              <Text style={styles.modalLabel}>Adresse</Text>
+              <TextInput style={styles.modalInput} value={editVendorAddress} onChangeText={setEditVendorAddress} placeholder="Straße, PLZ Ort..." placeholderTextColor="#9e9eaa" />
+              <Text style={styles.modalLabel}>USt-IdNr</Text>
+              <TextInput style={styles.modalInput} value={editVendorVatId} onChangeText={setEditVendorVatId} placeholder="DE123456789" placeholderTextColor="#9e9eaa" />
+              <Text style={styles.modalLabel}>IBAN</Text>
+              <TextInput style={styles.modalInput} value={editVendorIban} onChangeText={setEditVendorIban} placeholder="DE89..." placeholderTextColor="#9e9eaa" />
+
+              {/* Rechnungsdaten */}
+              <Text style={[styles.editSectionTitle, { marginTop: 16 }]}>Rechnungsdaten</Text>
+              <Text style={styles.modalLabel}>Rechnungsnummer</Text>
+              <TextInput style={styles.modalInput} value={editInvoiceNumber} onChangeText={setEditInvoiceNumber} placeholder="RE-2024-001" placeholderTextColor="#9e9eaa" />
+              <Text style={styles.modalLabel}>Rechnungsdatum (JJJJ-MM-TT)</Text>
+              <TextInput style={styles.modalInput} value={editInvoiceDate} onChangeText={setEditInvoiceDate} placeholder="2024-01-15" placeholderTextColor="#9e9eaa" />
+              <Text style={styles.modalLabel}>Fälligkeitsdatum (JJJJ-MM-TT)</Text>
+              <TextInput style={styles.modalInput} value={editDueDate} onChangeText={setEditDueDate} placeholder="2024-02-15" placeholderTextColor="#9e9eaa" />
+
+              {/* Beträge */}
+              <Text style={[styles.editSectionTitle, { marginTop: 16 }]}>Beträge</Text>
+              <View style={styles.editAmountsRow}>
+                <View style={{ flex: 1, marginRight: 8 }}>
+                  <Text style={styles.modalLabel}>Netto (€)</Text>
+                  <TextInput style={styles.modalInput} value={editNetAmount} onChangeText={setEditNetAmount} keyboardType="decimal-pad" placeholder="0.00" placeholderTextColor="#9e9eaa" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.modalLabel}>MwSt-Satz (%)</Text>
+                  <TextInput style={styles.modalInput} value={editVatRate} onChangeText={setEditVatRate} keyboardType="decimal-pad" placeholder="19" placeholderTextColor="#9e9eaa" />
+                </View>
+              </View>
+              <View style={styles.editAmountsRow}>
+                <View style={{ flex: 1, marginRight: 8 }}>
+                  <Text style={styles.modalLabel}>MwSt-Betrag (€)</Text>
+                  <TextInput style={styles.modalInput} value={editVatAmount} onChangeText={setEditVatAmount} keyboardType="decimal-pad" placeholder="0.00" placeholderTextColor="#9e9eaa" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.modalLabel}>Brutto (€)</Text>
+                  <TextInput style={styles.modalInput} value={editGrossAmount} onChangeText={setEditGrossAmount} keyboardType="decimal-pad" placeholder="0.00" placeholderTextColor="#9e9eaa" />
+                </View>
+              </View>
+              <View style={{ height: 16 }} />
+            </ScrollView>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity style={styles.modalCancelButton} onPress={() => setShowEditModal(false)}>
+                <Text style={styles.modalCancelText}>Abbrechen</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalConfirmButton} onPress={handleSaveInvoiceData} disabled={actionLoading}>
+                {actionLoading ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.modalConfirmText}>Speichern</Text>}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
       {/* Accounting Modal */}
       <Modal visible={showAccountingModal} transparent animationType="slide" onRequestClose={() => setShowAccountingModal(false)}>
         <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -680,7 +815,7 @@ const styles = StyleSheet.create({
   imageContainer: { margin: 16, borderRadius: 12, overflow: 'hidden', position: 'relative' },
   invoiceImage: { width: '100%', height: 200, backgroundColor: '#ffffff' },
   imageOverlay: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(0,0,0,0.6)', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 8 },
-  imageOverlayText: { color: '#2c2c3e', marginLeft: 8, fontSize: 14 },
+  imageOverlayText: { color: '#ffffff', marginLeft: 8, fontSize: 14 },
   section: { padding: 16 },
   sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   sectionTitle: { fontSize: 16, fontWeight: 'bold', color: '#6e6e85', marginBottom: 12 },
@@ -739,15 +874,22 @@ const styles = StyleSheet.create({
   pickerContainer: { backgroundColor: '#ffffff', borderRadius: 8, borderWidth: 1, borderColor: '#e5ddd5', overflow: 'hidden', marginBottom: 4 },
   pickerItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 11, borderBottomWidth: 1, borderBottomColor: '#e5ddd5' },
   pickerItemActive: { backgroundColor: '#e5ddd5' },
-  pickerItemText: { color: '#b2bec3', fontSize: 14, flex: 1 },
+  pickerItemText: { color: '#636e72', fontSize: 14, flex: 1 },
   pickerItemTextActive: { color: '#2c2c3e', fontWeight: '600' },
   modalInput: { backgroundColor: '#f4f0eb', borderRadius: 8, padding: 12, fontSize: 16, color: '#2c2c3e', borderWidth: 1, borderColor: '#e5ddd5' },
   modalButtons: { flexDirection: 'row', marginTop: 20, gap: 12 },
   modalCancelButton: { flex: 1, padding: 14, borderRadius: 8, backgroundColor: '#e5ddd5', alignItems: 'center' },
   modalCancelText: { color: '#6e6e85', fontSize: 16, fontWeight: '600' },
   modalConfirmButton: { flex: 1, padding: 14, borderRadius: 8, backgroundColor: '#6c5ce7', alignItems: 'center' },
-  modalConfirmText: { color: '#2c2c3e', fontSize: 16, fontWeight: '600' },
+  modalConfirmText: { color: '#ffffff', fontSize: 16, fontWeight: '600' },
   imageModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', justifyContent: 'center', alignItems: 'center' },
   closeImageButton: { position: 'absolute', top: 50, right: 20, zIndex: 10, padding: 10 },
   fullImage: { width: '100%', height: '80%' },
+  // OCR Edit styles
+  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
+  ocrEditButton: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 4, backgroundColor: '#6c5ce720', borderRadius: 8 },
+  ocrEditButtonText: { color: '#6c5ce7', fontSize: 12, marginLeft: 4, fontWeight: '600' },
+  editModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  editSectionTitle: { fontSize: 13, fontWeight: '700', color: '#6c5ce7', marginBottom: 8, paddingBottom: 6, borderBottomWidth: 1, borderBottomColor: '#e5ddd5' },
+  editAmountsRow: { flexDirection: 'row', marginBottom: 4 },
 });
