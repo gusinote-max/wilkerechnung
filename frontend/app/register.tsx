@@ -191,7 +191,7 @@ export default function RegisterScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f0f1a',
+    backgroundColor: '#f4f0eb',
   },
   keyboardView: {
     flex: 1,
@@ -236,15 +236,15 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#fff',
+    color: '#2c2c3e',
   },
   subtitle: {
     fontSize: 14,
-    color: '#a0a0a0',
+    color: '#6e6e85',
     marginTop: 4,
   },
   form: {
-    backgroundColor: '#1a1a2e',
+    backgroundColor: '#ffffff',
     borderRadius: 16,
     padding: 24,
   },
@@ -253,18 +253,18 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    color: '#a0a0a0',
+    color: '#6e6e85',
     marginBottom: 8,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0f0f1a',
+    backgroundColor: '#f4f0eb',
     borderRadius: 12,
     paddingHorizontal: 16,
     height: 50,
     borderWidth: 1,
-    borderColor: '#2d2d44',
+    borderColor: '#e5ddd5',
   },
   inputIcon: {
     marginRight: 12,
@@ -272,7 +272,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 16,
-    color: '#fff',
+    color: '#2c2c3e',
   },
   registerButton: {
     backgroundColor: '#6c5ce7',
@@ -286,7 +286,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#4a4a6a',
   },
   registerButtonText: {
-    color: '#fff',
+    color: '#2c2c3e',
     fontSize: 16,
     fontWeight: 'bold',
   },
@@ -295,7 +295,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loginLinkText: {
-    color: '#a0a0a0',
+    color: '#6e6e85',
     fontSize: 14,
   },
   loginLinkBold: {

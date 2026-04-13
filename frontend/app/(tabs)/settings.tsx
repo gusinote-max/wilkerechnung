@@ -276,7 +276,7 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f0f1a',
+    backgroundColor: '#f4f0eb',
   },
   keyboardView: {
     flex: 1,
@@ -296,12 +296,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    color: '#a0a0a0',
+    color: '#6e6e85',
     marginTop: 12,
     fontSize: 16,
   },
   section: {
-    backgroundColor: '#1a1a2e',
+    backgroundColor: '#ffffff',
     marginHorizontal: 16,
     marginTop: 16,
     borderRadius: 16,
@@ -317,12 +317,12 @@ const styles = StyleSheet.create({
   loginPromptText: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#fff',
+    color: '#2c2c3e',
     marginTop: 12,
   },
   loginPromptSubtext: {
     fontSize: 14,
-    color: '#a0a0a0',
+    color: '#6e6e85',
     marginTop: 4,
   },
   appInfo: {
@@ -334,7 +334,7 @@ const styles = StyleSheet.create({
   appInfoTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#fff',
+    color: '#2c2c3e',
   },
   appInfoVersion: {
     fontSize: 14,
@@ -343,7 +343,7 @@ const styles = StyleSheet.create({
   },
   appInfoText: {
     fontSize: 13,
-    color: '#636e72',
+    color: '#9e9eaa',
     textAlign: 'center',
     marginTop: 8,
     lineHeight: 20,

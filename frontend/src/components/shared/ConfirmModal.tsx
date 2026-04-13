@@ -58,7 +58,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   box: {
-    backgroundColor: '#1a1a2e',
+    backgroundColor: '#ffffff',
     borderRadius: 16,
     padding: 24,
     alignItems: 'center',
@@ -69,11 +69,11 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#fff',
+    color: '#2c2c3e',
   },
   message: {
     fontSize: 14,
-    color: '#a0a0a0',
+    color: '#6e6e85',
     textAlign: 'center',
     lineHeight: 20,
   },
@@ -92,7 +92,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cancelText: {
-    color: '#a0a0a0',
+    color: '#6e6e85',
     fontSize: 15,
     fontWeight: '600',
   },
@@ -103,7 +103,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   confirmText: {
-    color: '#fff',
+    color: '#2c2c3e',
     fontSize: 15,
     fontWeight: 'bold',
   },

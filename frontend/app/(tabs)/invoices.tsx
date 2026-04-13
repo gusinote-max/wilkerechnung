@@ -210,7 +210,7 @@ export default function InvoicesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f0f1a',
+    backgroundColor: '#f4f0eb',
   },
   loadingContainer: {
     flex: 1,
@@ -218,62 +218,72 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    color: '#a0a0a0',
+    color: '#6e6e85',
     marginTop: 12,
     fontSize: 16,
   },
   filterBar: {
     flexDirection: 'row',
     paddingHorizontal: 12,
-    paddingVertical: 12,
-    backgroundColor: '#1a1a2e',
+    paddingVertical: 10,
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5ddd5',
   },
   filterButton: {
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 7,
     borderRadius: 20,
     marginHorizontal: 4,
-    backgroundColor: '#2d2d44',
+    backgroundColor: '#ede8e0',
   },
   filterButtonActive: {
     backgroundColor: '#6c5ce7',
   },
   filterButtonText: {
-    color: '#a0a0a0',
-    fontSize: 14,
+    color: '#6e6e85',
+    fontSize: 13,
+    fontWeight: '500',
   },
   filterButtonTextActive: {
     color: '#fff',
-    fontWeight: 'bold',
+    fontWeight: '600',
   },
   listContent: {
     padding: 16,
     paddingBottom: 100,
   },
   invoiceCard: {
-    backgroundColor: '#1a1a2e',
-    borderRadius: 12,
+    backgroundColor: '#ffffff',
+    borderRadius: 10,
     padding: 16,
-    marginBottom: 12,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#e5ddd5',
+    shadowColor: '#1e1535',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   invoiceHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   invoiceInfo: {
     flex: 1,
   },
   invoiceNumber: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#fff',
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#2c2c3e',
   },
   vendorName: {
-    fontSize: 14,
-    color: '#a0a0a0',
-    marginTop: 4,
+    fontSize: 13,
+    color: '#6e6e85',
+    marginTop: 3,
   },
   statusBadge: {
     flexDirection: 'row',
@@ -295,18 +305,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   detailLabel: {
-    fontSize: 14,
-    color: '#636e72',
-    marginRight: 8,
+    fontSize: 13,
+    color: '#9e9eaa',
+    marginRight: 6,
   },
   detailValue: {
-    fontSize: 14,
-    color: '#a0a0a0',
+    fontSize: 13,
+    color: '#6e6e85',
   },
   detailValueHighlight: {
     fontSize: 14,
-    color: '#55efc4',
-    fontWeight: '600',
+    color: '#27ae60',
+    fontWeight: '700',
   },
   chevron: {
     position: 'absolute',
@@ -319,7 +329,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
-    color: '#636e72',
+    color: '#9e9eaa',
     marginTop: 16,
   },
   uploadPrompt: {
@@ -330,7 +340,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   uploadPromptText: {
-    color: '#fff',
+    color: '#2c2c3e',
     fontSize: 14,
     fontWeight: '600',
   },

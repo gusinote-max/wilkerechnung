@@ -130,10 +130,10 @@ const styles = StyleSheet.create({
   actionButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 14, borderRadius: 12, gap: 6 },
   btnContent: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   approveButton: { backgroundColor: '#55efc4' },
-  approveButtonDisabled: { backgroundColor: '#2d2d44', borderWidth: 1, borderColor: '#636e72' },
+  approveButtonDisabled: { backgroundColor: '#e5ddd5', borderWidth: 1, borderColor: '#636e72' },
   rejectButton: { backgroundColor: '#ff7675' },
   archiveButton: { backgroundColor: '#74b9ff' },
   deleteButton: { backgroundColor: '#d63031' },
-  actionButtonText: { color: '#fff', fontSize: 15, fontWeight: 'bold' },
-  disabledText: { color: '#636e72' },
+  actionButtonText: { color: '#2c2c3e', fontSize: 15, fontWeight: 'bold' },
+  disabledText: { color: '#9e9eaa' },
 });

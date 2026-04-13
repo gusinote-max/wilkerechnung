@@ -33,7 +33,7 @@ export default function UserInfoCard({ user, isDesktop, onLogout }: UserInfoCard
 
 const styles = StyleSheet.create({
   section: {
-    backgroundColor: '#1a1a2e',
+    backgroundColor: '#ffffff',
     marginHorizontal: 16,
     marginTop: 16,
     borderRadius: 16,
@@ -61,11 +61,11 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#fff',
+    color: '#2c2c3e',
   },
   userEmail: {
     fontSize: 14,
-    color: '#a0a0a0',
+    color: '#6e6e85',
     marginTop: 2,
   },
   roleBadge: {

@@ -470,7 +470,7 @@ export default function UploadScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f0f1a',
+    backgroundColor: '#f4f0eb',
   },
   scrollView: {
     flex: 1,
@@ -485,12 +485,12 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#fff',
+    color: '#2c2c3e',
     marginTop: 16,
   },
   subtitle: {
     fontSize: 14,
-    color: '#a0a0a0',
+    color: '#6e6e85',
     marginTop: 8,
     textAlign: 'center',
   },
@@ -502,31 +502,31 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 300,
     borderRadius: 12,
-    backgroundColor: '#1a1a2e',
+    backgroundColor: '#ffffff',
   },
   pdfPreview: {
     width: '100%',
     height: 200,
     borderRadius: 12,
-    backgroundColor: '#1a1a2e',
+    backgroundColor: '#ffffff',
     justifyContent: 'center',
     alignItems: 'center',
   },
   pdfFileName: {
     fontSize: 14,
-    color: '#a0a0a0',
+    color: '#6e6e85',
     marginTop: 8,
   },
   removeButton: {
     position: 'absolute',
     top: 10,
     right: 10,
-    backgroundColor: '#0f0f1a',
+    backgroundColor: '#f4f0eb',
     borderRadius: 16,
   },
   fileNameText: {
     fontSize: 12,
-    color: '#636e72',
+    color: '#9e9eaa',
     textAlign: 'center',
     marginTop: 8,
   },
@@ -539,7 +539,7 @@ const styles = StyleSheet.create({
   },
   optionCard: {
     width: '31%',
-    backgroundColor: '#1a1a2e',
+    backgroundColor: '#ffffff',
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
@@ -558,12 +558,12 @@ const styles = StyleSheet.create({
   optionTitle: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#fff',
+    color: '#2c2c3e',
     marginBottom: 4,
   },
   optionText: {
     fontSize: 11,
-    color: '#a0a0a0',
+    color: '#6e6e85',
     textAlign: 'center',
   },
   uploadButton: {
@@ -585,7 +585,7 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   infoContainer: {
-    backgroundColor: '#1a1a2e',
+    backgroundColor: '#ffffff',
     borderRadius: 12,
     padding: 16,
   },
@@ -596,7 +596,7 @@ const styles = StyleSheet.create({
   },
   infoText: {
     fontSize: 14,
-    color: '#a0a0a0',
+    color: '#6e6e85',
     marginLeft: 10,
   },
   // Analysis Result Styles
@@ -618,7 +618,7 @@ const styles = StyleSheet.create({
     color: '#55efc4',
   },
   resultCard: {
-    backgroundColor: '#1a1a2e',
+    backgroundColor: '#ffffff',
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
@@ -640,15 +640,15 @@ const styles = StyleSheet.create({
   },
   resultLabel: {
     fontSize: 14,
-    color: '#a0a0a0',
+    color: '#6e6e85',
   },
   resultLabelBold: {
     fontWeight: 'bold',
-    color: '#fff',
+    color: '#2c2c3e',
   },
   resultValue: {
     fontSize: 14,
-    color: '#fff',
+    color: '#2c2c3e',
     fontWeight: '500',
   },
   resultValueBold: {
@@ -662,7 +662,7 @@ const styles = StyleSheet.create({
   },
   resultItemsTitle: {
     fontSize: 12,
-    color: '#636e72',
+    color: '#9e9eaa',
     fontStyle: 'italic',
   },
   resultActions: {
@@ -689,7 +689,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   resultButtonText: {
-    color: '#fff',
+    color: '#2c2c3e',
     fontSize: 16,
     fontWeight: 'bold',
   },
@@ -714,7 +714,7 @@ const styles = StyleSheet.create({
   },
   errorMessage: {
     fontSize: 13,
-    color: '#a0a0a0',
+    color: '#6e6e85',
     textAlign: 'center',
     lineHeight: 18,
   },
@@ -729,7 +729,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   errorRetryText: {
-    color: '#fff',
+    color: '#2c2c3e',
     fontWeight: 'bold',
     fontSize: 14,
   },
@@ -737,7 +737,7 @@ const styles = StyleSheet.create({
   progressContainer: {
     alignItems: 'center',
     padding: 40,
-    backgroundColor: '#1a1a2e',
+    backgroundColor: '#ffffff',
     borderRadius: 12,
     marginBottom: 20,
     gap: 16,
@@ -749,6 +749,6 @@ const styles = StyleSheet.create({
   },
   progressHint: {
     fontSize: 12,
-    color: '#636e72',
+    color: '#9e9eaa',
   },
 });

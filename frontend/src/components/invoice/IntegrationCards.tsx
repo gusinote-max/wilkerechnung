@@ -96,13 +96,13 @@ export default function IntegrationCards({
 const styles = StyleSheet.create({
   section: { padding: 16, paddingBottom: 40 },
   desktopExport: { maxWidth: 600, alignSelf: 'center' },
-  sectionTitle: { fontSize: 14, color: '#a0a0a0', marginBottom: 12 },
-  card: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#0f0f1a', borderRadius: 10, padding: 14, gap: 12 },
+  sectionTitle: { fontSize: 14, color: '#6e6e85', marginBottom: 12 },
+  card: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f4f0eb', borderRadius: 10, padding: 14, gap: 12 },
   iconCircle: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
-  cardTitle: { color: '#fff', fontSize: 14, fontWeight: '600' },
-  cardDesc: { color: '#a0a0a0', fontSize: 12, marginTop: 2 },
+  cardTitle: { color: '#2c2c3e', fontSize: 14, fontWeight: '600' },
+  cardDesc: { color: '#6e6e85', fontSize: 12, marginTop: 2 },
   actionBtn: { borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 6 },
-  actionBtnText: { color: '#fff', fontSize: 13, fontWeight: '600' },
+  actionBtnText: { color: '#2c2c3e', fontSize: 13, fontWeight: '600' },
   doneBadge: { borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4 },
   doneBadgeText: { fontSize: 12, fontWeight: 'bold' },
 });

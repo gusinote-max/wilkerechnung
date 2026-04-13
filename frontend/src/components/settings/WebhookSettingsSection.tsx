@@ -94,17 +94,17 @@ export default function WebhookSettingsSection({ isDesktop, showToast }: Props) 
 }
 
 const styles = StyleSheet.create({
-  section: { backgroundColor: '#1a1a2e', marginHorizontal: 16, marginTop: 16, borderRadius: 16, padding: 20 },
+  section: { backgroundColor: '#ffffff', marginHorizontal: 16, marginTop: 16, borderRadius: 16, padding: 20 },
   desktopSection: { marginHorizontal: 0 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16, gap: 10 },
-  sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#fff' },
+  sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#2c2c3e' },
   inputGroup: { marginBottom: 16 },
-  input: { backgroundColor: '#0f0f1a', borderRadius: 10, padding: 14, fontSize: 15, color: '#fff', borderWidth: 1, borderColor: '#2d2d44' },
+  input: { backgroundColor: '#f4f0eb', borderRadius: 10, padding: 14, fontSize: 15, color: '#2c2c3e', borderWidth: 1, borderColor: '#e5ddd5' },
   addButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#6c5ce7', borderRadius: 10, padding: 14, marginTop: 12, gap: 8 },
-  addButtonText: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  addButtonText: { color: '#2c2c3e', fontSize: 14, fontWeight: '600' },
   webhookList: { marginTop: 8 },
-  webhookItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#2d2d44' },
+  webhookItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#e5ddd5' },
   webhookInfo: { flex: 1, marginRight: 12 },
-  webhookName: { fontSize: 15, fontWeight: '600', color: '#fff' },
-  webhookUrl: { fontSize: 13, color: '#636e72', marginTop: 2 },
+  webhookName: { fontSize: 15, fontWeight: '600', color: '#2c2c3e' },
+  webhookUrl: { fontSize: 13, color: '#9e9eaa', marginTop: 2 },
 });

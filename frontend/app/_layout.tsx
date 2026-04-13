@@ -55,19 +55,19 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
       <AuthGuard>
         <Stack
           screenOptions={{
             headerStyle: {
-              backgroundColor: '#1a1a2e',
+              backgroundColor: '#ffffff',
             },
-            headerTintColor: '#fff',
+            headerTintColor: '#2c2c3e',
             headerTitleStyle: {
               fontWeight: 'bold',
             },
             contentStyle: {
-              backgroundColor: '#0f0f1a',
+              backgroundColor: '#f4f0eb',
             },
           }}
         >

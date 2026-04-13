@@ -117,18 +117,18 @@ export default function EmailSettingsSection({ isDesktop, initialData, userEmail
 }
 
 const styles = StyleSheet.create({
-  section: { backgroundColor: '#1a1a2e', marginHorizontal: 16, marginTop: 16, borderRadius: 16, padding: 20 },
+  section: { backgroundColor: '#ffffff', marginHorizontal: 16, marginTop: 16, borderRadius: 16, padding: 20 },
   desktopSection: { marginHorizontal: 0 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16, gap: 10 },
-  sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#fff' },
+  sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#2c2c3e' },
   switchRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12 },
-  switchLabel: { fontSize: 15, color: '#fff', fontWeight: '500' },
+  switchLabel: { fontSize: 15, color: '#2c2c3e', fontWeight: '500' },
   inputGroup: { marginBottom: 16 },
-  label: { fontSize: 14, fontWeight: '600', color: '#a0a0a0', marginBottom: 8 },
-  input: { backgroundColor: '#0f0f1a', borderRadius: 10, padding: 14, fontSize: 15, color: '#fff', borderWidth: 1, borderColor: '#2d2d44' },
+  label: { fontSize: 14, fontWeight: '600', color: '#6e6e85', marginBottom: 8 },
+  input: { backgroundColor: '#f4f0eb', borderRadius: 10, padding: 14, fontSize: 15, color: '#2c2c3e', borderWidth: 1, borderColor: '#e5ddd5' },
   inputRow: { flexDirection: 'row' },
   desktopInputRow: { flexDirection: 'row' },
   buttonRow: { flexDirection: 'row', gap: 12, marginTop: 8 },
-  secondaryButton: { flex: 1, backgroundColor: '#2d2d44', borderRadius: 10, padding: 14, alignItems: 'center' },
-  secondaryButtonText: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  secondaryButton: { flex: 1, backgroundColor: '#e5ddd5', borderRadius: 10, padding: 14, alignItems: 'center' },
+  secondaryButtonText: { color: '#2c2c3e', fontSize: 14, fontWeight: '600' },
 });
